@@ -5,6 +5,7 @@
 
 import { ArxivSearcher } from '../platforms/ArxivSearcher.js';
 import { WebOfScienceSearcher } from '../platforms/WebOfScienceSearcher.js';
+import { PubMedSearcher } from '../platforms/PubMedSearcher.js';
 import { PaperFactory } from '../models/Paper.js';
 
 async function testArxivSearch() {
@@ -116,12 +117,48 @@ async function testPaperModel() {
   }
 }
 
+async function testPubMedSearch() {
+  console.log('\n🧪 Testing PubMed Search...');
+  
+  const pubmedSearcher = new PubMedSearcher(process.env.PUBMED_API_KEY);
+  
+  try {
+    console.log('Platform capabilities:', pubmedSearcher.getCapabilities());
+    console.log('API key status:', pubmedSearcher.hasApiKey() ? 'configured' : 'not configured');
+    console.log('Rate limiter status:', pubmedSearcher.getRateLimiterStatus());
+    
+    // 测试简单搜索
+    const results = await pubmedSearcher.search('COVID-19', { maxResults: 3 });
+    console.log(`Found ${results.length} papers from PubMed`);
+    
+    if (results.length > 0) {
+      const firstPaper = results[0];
+      console.log('First paper:', {
+        id: firstPaper.paperId,
+        title: firstPaper.title.substring(0, 100) + '...',
+        authors: firstPaper.authors.slice(0, 2),
+        journal: firstPaper.journal,
+        source: firstPaper.source
+      });
+    }
+    
+    console.log('✅ PubMed test passed');
+  } catch (error: any) {
+    if (error.message.includes('rate limit') || error.message.includes('429')) {
+      console.log('⚠️  PubMed test failed - Rate limit exceeded (this is expected for testing)');
+    } else {
+      console.error('❌ PubMed test failed:', error.message);
+    }
+  }
+}
+
 async function runAllTests() {
   console.log('🚀 Starting Paper Search MCP Tests\n');
   
   await testPaperModel();
   await testArxivSearch();
   await testWebOfScienceSearch();
+  await testPubMedSearch();
   
   console.log('\n🎉 Test suite completed!');
 }

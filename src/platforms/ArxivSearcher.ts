@@ -38,7 +38,7 @@ interface ArxivResponse {
 
 export class ArxivSearcher extends PaperSource {
   constructor() {
-    super('arxiv', 'http://export.arxiv.org/api');
+    super('arxiv', 'https://export.arxiv.org/api');
   }
 
   getCapabilities(): PlatformCapabilities {
@@ -67,9 +67,25 @@ export class ArxivSearcher extends PaperSource {
         sortOrder: options.sortOrder || 'descending'
       };
 
-      const response = await axios.get(url, { params, timeout: 15000 });
-      return await this.parseSearchResponse(response.data);
-    } catch (error) {
+      console.error(`🔍 arXiv API Request: GET ${url}`);
+      console.error(`📋 arXiv Request params:`, params);
+
+      const response = await axios.get(url, { 
+        params, 
+        timeout: 30000,
+        headers: {
+          'User-Agent': 'Paper-Search-MCP/1.0 (Academic Research Tool)'
+        }
+      });
+      
+      console.error(`✅ arXiv API Response: ${response.status} ${response.statusText}, Data length: ${response.data?.length || 0}`);
+      
+      const papers = await this.parseSearchResponse(response.data);
+      console.error(`📄 arXiv Parsed ${papers.length} papers`);
+      
+      return papers;
+    } catch (error: any) {
+      console.error(`❌ arXiv Search Error:`, error.message);
       this.handleHttpError(error, 'search');
     }
   }
@@ -252,7 +268,7 @@ export class ArxivSearcher extends PaperSource {
         pdfUrl: pdfUrl,
         url: `https://arxiv.org/abs/${paperId}`,
         source: 'arxiv',
-        updatedDate: updatedDate,
+        updatedDate: updatedDate || undefined,
         categories: categories,
         keywords: [], // arXiv通常不提供关键词
         citationCount: 0, // arXiv本身不提供被引统计

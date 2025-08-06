@@ -20,6 +20,12 @@ export interface SearchOptions {
   sortBy?: 'relevance' | 'date' | 'citations';
   /** 排序顺序 */
   sortOrder?: 'asc' | 'desc';
+  /** 搜索天数范围 (bioRxiv/medRxiv) */
+  days?: number;
+  /** 是否获取详细信息 (IACR) */
+  fetchDetails?: boolean;
+  /** 研究领域过滤 (Semantic Scholar) */
+  fieldsOfStudy?: string[];
 }
 
 export interface DownloadOptions {
@@ -151,9 +157,24 @@ export abstract class PaperSource {
   protected handleHttpError(error: any, operation: string): never {
     const message = error.response?.data?.message || error.message || 'Unknown error';
     const status = error.response?.status;
+    const url = error.config?.url;
+    const method = error.config?.method?.toUpperCase();
+    
+    // 详细错误信息用于调试
+    console.error(`❌ ${this.platformName} ${operation} Error Details:`, {
+      status,
+      message,
+      url,
+      method,
+      responseData: error.response?.data,
+      requestConfig: {
+        params: error.config?.params,
+        headers: error.config?.headers
+      }
+    });
     
     throw new Error(
-      `${this.platformName} ${operation} failed${status ? ` (${status})` : ''}: ${message}`
+      `${this.platformName} ${operation} failed${status ? ` (${status})` : ''}: ${message}. URL: ${method} ${url}`
     );
   }
 

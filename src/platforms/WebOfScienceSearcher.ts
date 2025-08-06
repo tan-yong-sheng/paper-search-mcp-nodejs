@@ -17,85 +17,52 @@ interface WoSSearchOptions extends SearchOptions {
 }
 
 interface WoSApiResponse {
-  QueryResult: {
-    RecordsFound: number;
-    RecordsSearched: number;
-    Records: WoSRecord[];
+  metadata: {
+    total: number;
+    page: number;
+    limit: number;
   };
+  hits: WoSRecord[];
 }
 
 interface WoSRecord {
   /** 唯一标识符 */
-  UID: string;
-  /** 标题信息 */
-  static_data: {
-    summary: {
-      titles: {
-        title: Array<{
-          '#text': string;
-          type: string;
-        }>;
-      };
-      names: {
-        name: Array<{
-          display_name: string;
-          role: string;
-        }>;
-      };
-      pub_info: {
-        '@pubyear': string;
-        '@vol': string;
-        '@issue': string;
-        '@pubtype': string;
-        page: {
-          '@begin': string;
-          '@end': string;
-        };
-        pub_title: {
-          '#text': string;
-        };
-      };
-      doctypes: {
-        doctype: string;
-      };
-    };
-    fullrecord_metadata: {
-      abstracts?: {
-        abstract: {
-          abstract_text: {
-            p: string;
-          };
-        };
-      };
-      category_info?: {
-        headings: {
-          heading: Array<{
-            '#text': string;
-          }>;
-        };
-        subheadings: {
-          subheading: Array<{
-            '#text': string;
-          }>;
-        };
-      };
-      keywords?: {
-        keyword: Array<{
-          '#text': string;
-        }>;
-      };
-    };
+  uid: string;
+  /** 标题 */
+  title: string;
+  /** 文档类型 */
+  types: string[];
+  /** 来源类型 */
+  sourceTypes: string[];
+  /** 来源信息 */
+  source: {
+    sourceTitle: string;
+    publishYear: number;
+    publishMonth?: string;
+    volume?: string;
+    issue?: string;
+    pages?: string;
   };
-  /** 动态数据（引用等） */
-  dynamic_data?: {
-    citation_related: {
-      tc_list: {
-        silo_tc: {
-          local_count: string;
-        };
-      };
-    };
+  /** 作者信息 */
+  names?: {
+    authors?: Array<{
+      displayName: string;
+    }>;
   };
+  /** 摘要 */
+  abstract?: string;
+  /** DOI */
+  identifiers?: {
+    doi?: string;
+  };
+  /** 关键词 */
+  keywords?: {
+    authorKeywords?: string[];
+  };
+  /** 被引次数 */
+  citations?: Array<{
+    citingArticlesCount?: number;
+  }>;
 }
 
 export class WebOfScienceSearcher extends PaperSource {
@@ -105,7 +72,8 @@ export class WebOfScienceSearcher extends PaperSource {
   constructor(apiKey?: string, apiVersion: string = 'v1') {
     super('webofscience', 'https://api.clarivate.com/apis', apiKey);
     this.apiVersion = apiVersion;
-    this.apiUrl = `${this.baseUrl}/wos-researcher/${this.apiVersion}`;
+    this.apiUrl = `${this.baseUrl}/wos-starter/${this.apiVersion}`;
+    console.error(`🔧 WoS API URL: ${this.apiUrl}`);
   }
 
   getCapabilities(): PlatformCapabilities {
@@ -195,33 +163,35 @@ export class WebOfScienceSearcher extends PaperSource {
    * 构建搜索查询参数
    */
   private buildSearchQuery(query: string, options: WoSSearchOptions): Record<string, any> {
+    // Web of Science requires tagged queries - use TS= for topic search
+    let formattedQuery = `TS="${query}"`;
+    
     const params: Record<string, any> = {
-      databaseId: options.databases?.join(',') || 'WOS',
-      usrQuery: query,
-      count: options.maxResults || 10,
-      firstRecord: 1
+      q: formattedQuery,
+      db: options.databases?.join(',') || 'WOS',
+      limit: options.maxResults || 10,
+      page: 1
     };
 
-    // 添加年份过滤
+    // 添加年份过滤  
     if (options.year) {
-      params.usrQuery += ` AND PY=${options.year}`;
+      params.q += ` AND PY=${options.year}`;
     }
 
     // 添加作者过滤
     if (options.author) {
-      params.usrQuery += ` AND AU="${options.author}"`;
+      params.q += ` AND AU="${options.author}"`;
     }
 
     // 添加期刊过滤
     if (options.journal) {
-      params.usrQuery += ` AND SO="${options.journal}"`;
+      params.q += ` AND SO="${options.journal}"`;
     }
 
     // 添加排序
     if (options.sortBy) {
       const sortField = this.mapSortField(options.sortBy);
-      const sortOrder = options.sortOrder === 'asc' ? '+' : '-';
-      params.sortField = `${sortOrder}${sortField}`;
+      params.sortField = sortField;
     }
 
     return params;
@@ -243,11 +213,13 @@ export class WebOfScienceSearcher extends PaperSource {
    * 解析搜索响应
    */
   private parseSearchResponse(data: WoSApiResponse): Paper[] {
-    if (!data.QueryResult?.Records) {
+    if (!data.hits || !Array.isArray(data.hits)) {
+      console.error('❌ WoS: No hits found in response or hits is not an array');
       return [];
     }
 
-    return data.QueryResult.Records.map(record => this.parseWoSRecord(record))
+    console.error(`📊 WoS: Found ${data.hits.length} hits out of ${data.metadata?.total || 0} total`);
+    return data.hits.map(record => this.parseWoSRecord(record))
       .filter(paper => paper !== null) as Paper[];
   }
 
@@ -256,67 +228,55 @@ export class WebOfScienceSearcher extends PaperSource {
    */
   private parseWoSRecord(record: WoSRecord): Paper | null {
     try {
-      const summary = record.static_data.summary;
-      const fullRecord = record.static_data.fullrecord_metadata;
-
-      // 提取标题
-      const titleObj = summary.titles?.title?.find(t => t.type === 'item') || summary.titles?.title?.[0];
-      const title = titleObj?.['#text'] || 'No title available';
-
-      // 提取作者
-      const authors = summary.names?.name
-        ?.filter(name => name.role === 'author')
-        ?.map(name => name.display_name) || [];
-
-      // 提取摘要
-      const abstractText = fullRecord?.abstracts?.abstract?.abstract_text?.p || '';
-
+      // 提取基本信息
+      const title = record.title || 'No title available';
+      const authors = record.names?.authors?.map(author => author.displayName) || [];
+      const abstractText = record.abstract || '';
+      
       // 提取出版信息
-      const pubInfo = summary.pub_info;
-      const year = pubInfo?.['@pubyear'] ? parseInt(pubInfo['@pubyear'], 10) : undefined;
+      const year = record.source?.publishYear;
       const publishedDate = year ? new Date(year, 0, 1) : null;
-
-      // 提取期刊信息
-      const journal = pubInfo?.pub_title?.['#text'] || '';
-
+      const journal = record.source?.sourceTitle || '';
+      
+      // 提取DOI
+      const doi = record.identifiers?.doi || '';
+      
       // 提取被引次数
-      const citationCount = record.dynamic_data?.citation_related?.tc_list?.silo_tc?.local_count 
-        ? parseInt(record.dynamic_data.citation_related.tc_list.silo_tc.local_count, 10) 
-        : 0;
-
-      // 提取关键词和分类
-      const keywords = fullRecord?.keywords?.keyword?.map(kw => kw['#text']) || [];
-      const categories = fullRecord?.category_info?.headings?.heading?.map(h => h['#text']) || [];
-
+      const citationCount = record.citations?.[0]?.citingArticlesCount || 0;
+      
+      // 提取关键词
+      const keywords = record.keywords?.authorKeywords || [];
+      
       // 构建URL
-      const wosUrl = `https://www.webofscience.com/wos/woscc/full-record/${record.UID}`;
+      const wosUrl = `https://www.webofscience.com/wos/woscc/full-record/${record.uid}`;
 
       return PaperFactory.create({
-        paperId: record.UID,
+        paperId: record.uid,
         title: this.cleanText(title),
         authors: authors,
         abstract: this.cleanText(abstractText),
-        doi: '', // WoS记录中的DOI需要从其他字段提取
+        doi: doi,
         publishedDate: publishedDate,
         pdfUrl: '', // WoS通常不提供直接PDF链接
         url: wosUrl,
         source: 'webofscience',
-        categories: categories,
+        categories: record.types || [],
         keywords: keywords,
         citationCount: citationCount,
         journal: journal,
-        volume: pubInfo?.['@vol'] || undefined,
-        issue: pubInfo?.['@issue'] || undefined,
-        pages: this.extractPages(pubInfo),
+        volume: record.source?.volume || undefined,
+        issue: record.source?.issue || undefined,
+        pages: record.source?.pages || undefined,
         year: year,
         extra: {
-          uid: record.UID,
-          doctype: summary.doctypes?.doctype,
-          pubtype: pubInfo?.['@pubtype']
+          uid: record.uid,
+          doctype: record.types?.[0],
+          sourceTypes: record.sourceTypes
         }
       });
     } catch (error) {
       console.error('Error parsing WoS record:', error);
+      console.error('Record data:', record);
       return null;
     }
   }
@@ -350,12 +310,33 @@ export class WebOfScienceSearcher extends PaperSource {
       headers: {
         'X-ApiKey': this.apiKey,
         'Content-Type': 'application/json',
+        'User-Agent': 'Paper-Search-MCP/1.0 (Academic Research Tool)',
         ...config.headers
       },
       timeout: 30000
     };
 
-    return axios(url, requestConfig);
+    console.error(`🔍 WoS API Request: ${config.method} ${url}`);
+    console.error(`📋 WoS Request params:`, config.params);
+    
+    try {
+      const response = await axios(url, requestConfig);
+      console.error(`✅ WoS API Response: ${response.status} ${response.statusText}`);
+      console.error(`📄 WoS Response data preview:`, JSON.stringify(response.data, null, 2).substring(0, 500));
+      return response;
+    } catch (error: any) {
+      console.error(`❌ WoS API Error:`, {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          params: error.config?.params
+        }
+      });
+      throw error;
+    }
   }
 
   /**

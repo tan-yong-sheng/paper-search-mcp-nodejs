@@ -1,83 +1,101 @@
 # Paper Search MCP (Node.js)
 
-A Node.js implementation of the Model Context Protocol (MCP) server for searching and downloading academic papers from multiple sources, including **Web of Science**, arXiv, and more.
+## English|[中文](README-sc.md)
+
+A Node.js Model Context Protocol (MCP) server for searching and downloading academic papers from multiple sources, including arXiv, Web of Science, PubMed, Google Scholar, and **8 academic platforms** in total.
 
 ![Node.js](https://img.shields.io/badge/node.js->=18.0.0-green.svg)
 ![TypeScript](https://img.shields.io/badge/typescript-^5.5.3-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Platforms](https://img.shields.io/badge/platforms-8-brightgreen.svg)
 
-## ✨ Features
+## ✨ Key Features
 
-- **多平台支持**: arXiv, Web of Science, 以及更多学术数据库
-- **Web of Science集成**: 支持Web of Science Starter和Researcher API
-- **统一数据格式**: 标准化的论文数据模型，支持所有平台
-- **MCP协议**: 与大语言模型（如Claude Desktop）无缝集成
-- **TypeScript**: 完整的类型安全和现代JavaScript特性
-- **异步处理**: 高效的并发搜索和下载
-- **灵活配置**: 支持多种搜索选项和过滤器
+- **🌍 8 Academic Platforms**: arXiv, Web of Science, PubMed, Google Scholar, bioRxiv, medRxiv, Semantic Scholar, IACR ePrint
+- **🔗 MCP Protocol Integration**: Seamless integration with Claude Desktop and other AI assistants
+- **📊 Unified Data Model**: Standardized paper format across all platforms
+- **⚡ High-Performance Search**: Concurrent search with intelligent rate limiting
+- **🛡️ Type Safety**: Complete TypeScript support
+- **🎯 Academic Papers First**: Smart filtering prioritizing academic papers over books
+- **🔄 Smart Error Handling**: Platform fallback and auto-retry mechanisms
 
-## 📚 支持的平台
+## 📚 Supported Platforms
 
-| 平台 | 搜索 | 下载 | 全文 | 被引统计 | API密钥 |
-|------|------|------|------|----------|---------|
-| **Web of Science** | ✅ | ❌ | ❌ | ✅ | ✅ 必需 |
-| **arXiv** | ✅ | ✅ | ✅ | ❌ | ❌ |
-| PubMed | 🚧 | 🚧 | 🚧 | 🚧 | 🚧 |
-| Semantic Scholar | 🚧 | 🚧 | 🚧 | 🚧 | 🚧 |
+| Platform | Search | Download | Full Text | Citations | API Key | Special Features |
+|----------|--------|----------|-----------|-----------|---------|------------------|
+| **arXiv** | ✅ | ✅ | ✅ | ❌ | ❌ | Physics/CS preprints |
+| **Web of Science** | ✅ | ❌ | ❌ | ✅ | ✅ Required | High-quality journal index |
+| **PubMed** | ✅ | ❌ | ❌ | ❌ | 🟡 Optional | Biomedical literature |
+| **Google Scholar** | ✅ | ❌ | ❌ | ✅ | ❌ | Comprehensive academic search |
+| **bioRxiv** | ✅ | ✅ | ✅ | ❌ | ❌ | Biology preprints |
+| **medRxiv** | ✅ | ✅ | ✅ | ❌ | ❌ | Medical preprints |
+| **Semantic Scholar** | ✅ | ✅ | ❌ | ✅ | 🟡 Optional | AI semantic search |
+| **IACR ePrint** | ✅ | ✅ | ✅ | ❌ | ❌ | Cryptography papers |
 
-✅ 已支持 | ❌ 不支持 | 🚧 开发中
+✅ Supported | ❌ Not supported | 🟡 Optional
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 系统要求
+### System Requirements
 
 - Node.js >= 18.0.0
-- npm 或 yarn
+- npm or yarn
 
-### 安装
+### Installation
 
 ```bash
-# 克隆仓库
+# Clone repository
 git clone https://github.com/your-username/paper-search-mcp-nodejs.git
 cd paper-search-mcp-nodejs
 
-# 安装依赖
+# Install dependencies
 npm install
 
-# 复制环境变量模板
+# Copy environment template
 cp .env.example .env
 ```
 
-### 配置
+### Configuration
 
-1. **获取Web of Science API密钥**
-   - 访问 [Clarivate Developer Portal](https://developer.clarivate.com/apis)
-   - 注册并申请Web of Science API访问权限
-   - 将API密钥添加到 `.env` 文件
+1. **Get Web of Science API Key**
+   - Visit [Clarivate Developer Portal](https://developer.clarivate.com/apis)
+   - Register and apply for Web of Science API access
+   - Add API key to `.env` file
 
-2. **配置环境变量**
+2. **Get PubMed API Key (Optional)**
+   - Without API key: Free usage, 3 requests/second limit
+   - With API key: 10 requests/second, more stable service
+   - Get key: See [NCBI API Keys](https://ncbiinsights.ncbi.nlm.nih.gov/2017/11/02/new-api-keys-for-the-e-utilities/)
+
+3. **Configure Environment Variables**
    ```bash
-   # 编辑 .env 文件
+   # Edit .env file
    WOS_API_KEY=your_actual_api_key_here
    WOS_API_VERSION=v1
+   
+   # PubMed API key (optional, recommended for better performance)
+   PUBMED_API_KEY=your_ncbi_api_key_here
+   
+   # Semantic Scholar API key (optional, increases rate limits)
+   SEMANTIC_SCHOLAR_API_KEY=your_semantic_scholar_api_key
    ```
 
-### 构建和运行
+### Build and Run
 
 ```bash
-# 构建TypeScript代码
+# Build TypeScript code
 npm run build
 
-# 运行服务器
+# Start server
 npm start
 
-# 或者在开发模式下运行
+# Or run in development mode
 npm run dev
 ```
 
-### 与Claude Desktop集成
+### Claude Desktop Integration
 
-在Claude Desktop配置文件中添加以下配置：
+Add the following configuration to your Claude Desktop config file:
 
 **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
@@ -96,13 +114,13 @@ npm run dev
 }
 ```
 
-## 🛠️ MCP工具
+## 🛠️ MCP Tools
 
 ### `search_papers`
-搜索多个平台的学术论文
+Search academic papers across multiple platforms
 
 ```typescript
-// 搜索所有平台
+// Search all platforms
 search_papers({
   query: "machine learning",
   platform: "all",
@@ -111,7 +129,7 @@ search_papers({
   sortBy: "date"
 })
 
-// 搜索特定平台
+// Search specific platform
 search_papers({
   query: "quantum computing",
   platform: "webofscience",
@@ -120,7 +138,7 @@ search_papers({
 ```
 
 ### `search_arxiv`
-专门搜索arXiv预印本
+Search arXiv preprints specifically
 
 ```typescript
 search_arxiv({
@@ -132,7 +150,7 @@ search_arxiv({
 ```
 
 ### `search_webofscience`
-专门搜索Web of Science数据库
+Search Web of Science database specifically
 
 ```typescript
 search_webofscience({
@@ -143,8 +161,69 @@ search_webofscience({
 })
 ```
 
+### `search_pubmed`
+Search PubMed/MEDLINE biomedical literature database
+
+```typescript
+search_pubmed({
+  query: "COVID-19 vaccine efficacy",
+  maxResults: 20,
+  year: "2023",
+  author: "Smith",
+  journal: "New England Journal of Medicine",
+  publicationType: ["Journal Article", "Clinical Trial"]
+})
+```
+
+### `search_google_scholar`
+Search Google Scholar academic database
+
+```typescript
+search_google_scholar({
+  query: "machine learning",
+  maxResults: 10,
+  yearLow: 2020,
+  yearHigh: 2023,
+  author: "Bengio"
+})
+```
+
+### `search_biorxiv` / `search_medrxiv`
+Search biology and medical preprints
+
+```typescript
+search_biorxiv({
+  query: "CRISPR",
+  maxResults: 15,
+  days: 30
+})
+```
+
+### `search_semantic_scholar`
+Search Semantic Scholar AI semantic database
+
+```typescript
+search_semantic_scholar({
+  query: "deep learning",
+  maxResults: 10,
+  fieldsOfStudy: ["Computer Science"],
+  year: "2023"
+})
+```
+
+### `search_iacr`
+Search IACR ePrint cryptography archive
+
+```typescript
+search_iacr({
+  query: "zero knowledge proof",
+  maxResults: 5,
+  fetchDetails: true
+})
+```
+
 ### `download_paper`
-下载论文PDF文件
+Download paper PDF files
 
 ```typescript
 download_paper({
@@ -155,7 +234,7 @@ download_paper({
 ```
 
 ### `get_paper_by_doi`
-通过DOI获取论文信息
+Get paper information by DOI
 
 ```typescript
 get_paper_by_doi({
@@ -165,133 +244,147 @@ get_paper_by_doi({
 ```
 
 ### `get_platform_status`
-检查平台状态和API密钥
+Check platform status and API keys
 
 ```typescript
 get_platform_status({})
 ```
 
-## 📊 数据模型
+## 📊 Data Model
 
-所有平台的论文数据都转换为统一的格式：
+All platform paper data is converted to a unified format:
 
 ```typescript
 interface Paper {
-  paperId: string;           // 唯一标识符
-  title: string;            // 论文标题
-  authors: string[];        // 作者列表
-  abstract: string;         // 摘要
+  paperId: string;           // Unique identifier
+  title: string;            // Paper title
+  authors: string[];        // Author list
+  abstract: string;         // Abstract
   doi: string;             // DOI
-  publishedDate: Date;     // 发布日期
-  pdfUrl: string;          // PDF链接
-  url: string;             // 论文页面URL
-  source: string;          // 来源平台
-  citationCount?: number;   // 被引次数
-  journal?: string;         // 期刊名称
-  year?: number;           // 年份
-  categories?: string[];    // 学科分类
-  keywords?: string[];      // 关键词
-  // ... 更多字段
+  publishedDate: Date;     // Publication date
+  pdfUrl: string;          // PDF link
+  url: string;             // Paper page URL
+  source: string;          // Source platform
+  citationCount?: number;   // Citation count
+  journal?: string;         // Journal name
+  year?: number;           // Publication year
+  categories?: string[];    // Subject categories
+  keywords?: string[];      // Keywords
+  // ... more fields
 }
 ```
 
-## 🔧 开发
+## 🔧 Development
 
-### 项目结构
+### Project Structure
 
 ```
 src/
 ├── models/
-│   └── Paper.ts              # 论文数据模型
+│   └── Paper.ts              # Paper data model
 ├── platforms/
-│   ├── PaperSource.ts        # 抽象基类
-│   ├── ArxivSearcher.ts      # arXiv搜索器
-│   └── WebOfScienceSearcher.ts # Web of Science搜索器
-└── server.ts                 # MCP服务器主文件
+│   ├── PaperSource.ts        # Abstract base class
+│   ├── ArxivSearcher.ts      # arXiv searcher
+│   ├── WebOfScienceSearcher.ts # Web of Science searcher
+│   ├── PubMedSearcher.ts     # PubMed searcher
+│   ├── GoogleScholarSearcher.ts # Google Scholar searcher
+│   ├── BioRxivSearcher.ts    # bioRxiv/medRxiv searcher
+│   ├── SemanticScholarSearcher.ts # Semantic Scholar searcher
+│   └── IACRSearcher.ts       # IACR ePrint searcher
+├── utils/
+│   └── RateLimiter.ts        # Token bucket rate limiter
+└── server.ts                 # MCP server main file
 ```
 
-### 添加新平台
+### Adding New Platforms
 
-1. 创建新的搜索器类继承 `PaperSource`
-2. 实现必需的抽象方法
-3. 在 `server.ts` 中注册新的搜索器
-4. 添加相应的MCP工具
+1. Create new searcher class extending `PaperSource`
+2. Implement required abstract methods
+3. Register new searcher in `server.ts`
+4. Add corresponding MCP tool
 
-### 测试
+### Testing
 
 ```bash
-# 运行测试
+# Run tests
 npm test
 
-# 运行linting
+# Run linting
 npm run lint
 
-# 代码格式化
+# Code formatting
 npm run format
 ```
 
-## 🌟 Web of Science 特性
+## 🌟 Platform-Specific Features
 
-### 支持的API
-
-- **Web of Science Starter API**: 基础搜索和被引统计
-- **Web of Science Researcher API**: 高级搜索和详细元数据
-
-### 高级搜索语法
+### Web of Science Advanced Search
 
 ```typescript
-// 使用Web of Science查询语法
+// Use Web of Science query syntax
 search_webofscience({
   query: 'TS="machine learning" AND PY=2023',
   maxResults: 20
 })
 
-// 作者搜索
+// Author search
 search_webofscience({
   query: 'AU="Smith, J*"',
   maxResults: 10
 })
 
-// 期刊搜索
+// Journal search
 search_webofscience({
   query: 'SO="Nature" AND PY=2022-2023',
   maxResults: 15
 })
 ```
 
-### 支持的字段
-
-- `TS`: 主题搜索
-- `AU`: 作者
-- `SO`: 来源期刊
-- `PY`: 发表年份
+**Supported Fields:**
+- `TS`: Topic search
+- `AU`: Author
+- `SO`: Source journal
+- `PY`: Publication year
 - `DO`: DOI
-- `TI`: 标题
+- `TI`: Title
 
-## 📝 许可证
+### Google Scholar Features
 
-MIT License - 查看 [LICENSE](LICENSE) 文件了解详情。
+- **Academic Paper Priority**: Automatically filters out books, prioritizes peer-reviewed papers
+- **Citation Data**: Provides citation counts and academic metrics
+- **Anti-Detection**: Smart request patterns to avoid blocking
+- **Comprehensive Coverage**: Searches across all academic publishers
 
-## 🤝 贡献
+### Semantic Scholar Features
 
-欢迎贡献！请查看 [CONTRIBUTING.md](CONTRIBUTING.md) 了解如何参与。
+- **AI-Powered Search**: Semantic understanding of queries
+- **Citation Networks**: Paper relationships and influence metrics
+- **Open Access PDFs**: Direct links to freely available papers
+- **Research Fields**: Filter by specific academic disciplines
 
-1. Fork项目
-2. 创建特性分支 (`git checkout -b feature/amazing-feature`)
-3. 提交更改 (`git commit -m 'Add amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
-5. 打开Pull Request
+## 📝 License
 
-## 🐛 问题报告
+MIT License - see [LICENSE](LICENSE) file for details.
 
-如果遇到问题，请在 [GitHub Issues](https://github.com/your-username/paper-search-mcp-nodejs/issues) 中报告。
+## 🤝 Contributing
 
-## 📞 支持
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-- 📧 Email: your.email@example.com
-- 💬 Discussions: [GitHub Discussions](https://github.com/your-username/paper-search-mcp-nodejs/discussions)
-- 📖 文档: [Wiki](https://github.com/your-username/paper-search-mcp-nodejs/wiki)
+1. Fork the project
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
+
+## 🐛 Issue Reporting
+
+If you encounter issues, please report them at [GitHub Issues](https://github.com/your-username/paper-search-mcp-nodejs/issues).
+
+## 🙏 Acknowledgments
+
+- Original [paper-search-mcp](https://github.com/openags/paper-search-mcp) for the foundation
+- MCP community for the protocol standards
 
 ---
 
-⭐ 如果这个项目对你有帮助，请给它一个星标！
+⭐ If this project helps you, please give it a star!
