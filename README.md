@@ -168,7 +168,6 @@ search_papers({
 - `platform: "all"` - Randomly selects one platform for efficient, focused results
 - Specific platform - Searches only that platform
 - Available platforms: `arxiv`, `webofscience`/`wos`, `pubmed`, `biorxiv`, `medrxiv`, `semantic`, `iacr`, `googlescholar`/`scholar`
-
 ### `search_arxiv`
 Search arXiv preprints specifically
 

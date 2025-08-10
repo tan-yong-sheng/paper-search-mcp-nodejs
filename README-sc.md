@@ -167,7 +167,6 @@ search_papers({
 - `platform: "all"` - 随机选择一个平台进行高效、聚焦的搜索
 - 特定平台 - 仅搜索指定平台
 - 可用平台: `arxiv`, `webofscience`/`wos`, `pubmed`, `biorxiv`, `medrxiv`, `semantic`, `iacr`, `googlescholar`/`scholar`
-
 ### `search_arxiv`
 专门搜索arXiv预印本
 
