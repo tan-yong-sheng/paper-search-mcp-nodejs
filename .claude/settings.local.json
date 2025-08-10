@@ -24,7 +24,9 @@
       "mcp__paper-search-nodejs__search_medrxiv",
       "mcp__paper-search-nodejs__search_pubmed",
       "WebFetch(domain:www.ncbi.nlm.nih.gov)",
-      "mcp__paper-search-nodejs__search_google_scholar"
+      "mcp__paper-search-nodejs__search_google_scholar",
+      "Bash(npm run build:*)",
+      "Bash(npm publish:*)"
     ],
     "deny": []
   }

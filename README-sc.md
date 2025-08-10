@@ -84,7 +84,7 @@ cp .env.example .env
 #### 方法1: NPX部署 (推荐用于MCP)
 ```bash
 # 使用npx直接运行 (最常见的MCP部署方式)
-npx paper-search-mcp-nodejs
+npx -y paper-search-mcp-nodejs
 
 # 或全局安装
 npm install -g paper-search-mcp-nodejs
@@ -116,7 +116,7 @@ npm run dev
   "mcpServers": {
     "paper-search-nodejs": {
       "command": "npx",
-      "args": ["paper-search-mcp-nodejs"],
+      "args": ["-y", "paper-search-mcp-nodejs"],
       "env": {
         "WOS_API_KEY": "your_web_of_science_api_key"
       }

@@ -85,7 +85,7 @@ cp .env.example .env
 #### Method 1: NPX (Recommended for MCP)
 ```bash
 # Direct run with npx (most common MCP deployment)
-npx paper-search-mcp-nodejs
+npx -y paper-search-mcp-nodejs
 
 # Or install globally
 npm install -g paper-search-mcp-nodejs
@@ -117,7 +117,7 @@ Add the following configuration to your Claude Desktop config file:
   "mcpServers": {
     "paper-search-nodejs": {
       "command": "npx",
-      "args": ["paper-search-mcp-nodejs"],
+      "args": ["-y", "paper-search-mcp-nodejs"],
       "env": {
         "WOS_API_KEY": "your_web_of_science_api_key"
       }
