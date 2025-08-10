@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * Paper Search MCP Server - Node.js Implementation
  * 支持多个学术平台的论文搜索和下载，包括 Web of Science
@@ -27,10 +28,20 @@ import { PaperSource } from './platforms/PaperSource.js';
 // 加载环境变量
 dotenv.config();
 
+// MCP静默模式检测
+const isMCPMode = process.argv.includes('--mcp') || process.env.MCP_SERVER === 'true' || process.stdin.isTTY === false;
+
+// 静默日志函数 - 使用rest parameters支持多个参数
+const debugLog = (...messages: any[]) => {
+  if (!isMCPMode && process.env.NODE_ENV === 'development') {
+    console.error(...messages);
+  }
+};
+
 // 创建MCP服务器实例
 const server = new Server({
   name: 'paper-search-mcp-nodejs',
-  version: '0.1.2'
+  version: '0.1.4'
 }, {
   capabilities: {
     tools: {
@@ -56,7 +67,7 @@ let searchers: {
 const initializeSearchers = () => {
   if (searchers) return searchers;
   
-  console.error('🔧 Initializing searchers...');
+  debugLog('🔧 Initializing searchers...');
   
   const arxivSearcher = new ArxivSearcher();
   const wosSearcher = new WebOfScienceSearcher(
@@ -83,7 +94,7 @@ const initializeSearchers = () => {
     scholar: googleScholarSearcher // 别名
   };
   
-  console.error('✅ Searchers initialized successfully');
+  debugLog('✅ Searchers initialized successfully');
   return searchers;
 };
 
@@ -449,7 +460,7 @@ const TOOLS: Tool[] = [
 
 // 添加initialize请求处理器 - MCP协议的核心初始化
 server.setRequestHandler(InitializeRequestSchema, async (request) => {
-  console.error('🤝 Received initialize request:', request.params);
+  debugLog('🤝 Received initialize request:', request.params);
   
   return {
     protocolVersion: '2024-11-05',
@@ -460,20 +471,20 @@ server.setRequestHandler(InitializeRequestSchema, async (request) => {
     },
     serverInfo: {
       name: 'paper-search-mcp-nodejs',
-      version: '0.1.2'
+      version: '0.1.4'
     }
   };
 });
 
 // 添加ping请求处理器 - 连接保活
 server.setRequestHandler(PingRequestSchema, async () => {
-  console.error('🏓 Received ping request');
+  debugLog('🏓 Received ping request');
   return {};
 });
 
 // 添加tools/list请求处理器
 server.setRequestHandler(ListToolsRequestSchema, async () => {
-  console.error('🔧 Received tools/list request');
+  debugLog('🔧 Received tools/list request');
   return {
     tools: TOOLS
   };
@@ -482,7 +493,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 // 添加tools/call请求处理器
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
-  console.error(`🔨 Received tools/call request: ${name}`);
+  debugLog(`🔨 Received tools/call request: ${name}`);
 
   try {
     // 延迟初始化搜索器
@@ -525,21 +536,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const availablePlatforms = Object.keys(currentSearchers).filter(name => name !== 'wos' && name !== 'scholar'); // 跳过别名
           const randomPlatform = availablePlatforms[Math.floor(Math.random() * availablePlatforms.length)];
           
-          console.error(`🎲 Randomly selected platform: ${randomPlatform}`);
+          debugLog(`🎲 Randomly selected platform: ${randomPlatform}`);
           
           try {
             const searcher = currentSearchers[randomPlatform as keyof typeof currentSearchers];
             const platformResults = await (searcher as PaperSource).search(query, searchOptions);
             results.push(...platformResults.map((paper: Paper) => PaperFactory.toDict(paper)));
           } catch (error) {
-            console.error(`Error searching random platform ${randomPlatform}:`, error);
+            debugLog(`Error searching random platform ${randomPlatform}:`, error);
             // 如果随机平台失败，尝试 arxiv 作为备选
             try {
-              console.error('🔄 Fallback to arXiv platform');
+              debugLog('🔄 Fallback to arXiv platform');
               const platformResults = await currentSearchers.arxiv.search(query, searchOptions);
               results.push(...platformResults.map((paper: Paper) => PaperFactory.toDict(paper)));
             } catch (fallbackError) {
-              console.error('Error with arxiv fallback:', fallbackError);
+              debugLog('Error with arxiv fallback:', fallbackError);
             }
           }
         } else {
@@ -614,12 +625,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const params = args as unknown as SearchPubMedParams;
         const { query, maxResults = 10, year, author, journal, publicationType } = params;
         
-        console.error(`🔍 MCP PubMed Search: query="${query}", maxResults=${maxResults}`);
-        console.error(`📋 MCP PubMed Search options:`, { maxResults, year, author, journal, publicationType });
-        console.error(`🔧 MCP PubMed Searcher type:`, typeof currentSearchers.pubmed);
-        console.error(`🔧 MCP PubMed Searcher hasApiKey:`, currentSearchers.pubmed.hasApiKey());
+        debugLog(`🔍 MCP PubMed Search: query="${query}", maxResults=${maxResults}`);
+        debugLog(`📋 MCP PubMed Search options:`, { maxResults, year, author, journal, publicationType });
+        debugLog(`🔧 MCP PubMed Searcher type:`, typeof currentSearchers.pubmed);
+        debugLog(`🔧 MCP PubMed Searcher hasApiKey:`, currentSearchers.pubmed.hasApiKey());
         
-        console.error(`⏳ MCP PubMed: About to call searcher.search()...`);
+        debugLog(`⏳ MCP PubMed: About to call searcher.search()...`);
         const results = await currentSearchers.pubmed.search(query, { 
           maxResults, 
           year, 
@@ -627,14 +638,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           journal,
           publicationType
         });
-        console.error(`⚡ MCP PubMed: searcher.search() completed`);
+        debugLog(`⚡ MCP PubMed: searcher.search() completed`);
         
-        console.error(`📄 MCP PubMed Results: Found ${results.length} papers`);
+        debugLog(`📄 MCP PubMed Results: Found ${results.length} papers`);
         if (results.length > 0) {
-          console.error(`📋 First paper title:`, results[0].title);
-          console.error(`📋 First paper paperId:`, results[0].paperId);
+          debugLog(`📋 First paper title:`, results[0].title);
+          debugLog(`📋 First paper paperId:`, results[0].paperId);
         } else {
-          console.error(`❌ MCP PubMed: No results returned from searcher`);
+          debugLog(`❌ MCP PubMed: No results returned from searcher`);
         }
 
         // 获取速率限制器状态信息
@@ -790,7 +801,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
         const { query, maxResults = 10, yearLow, yearHigh, author } = params;
         
-        console.error(`🔍 Google Scholar Search: query="${query}", maxResults=${maxResults}`);
+        debugLog(`🔍 Google Scholar Search: query="${query}", maxResults=${maxResults}`);
         
         const results = await currentSearchers.googlescholar.search(query, { 
           maxResults, 
@@ -799,7 +810,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           author 
         });
         
-        console.error(`📄 Google Scholar Results: Found ${results.length} papers`);
+        debugLog(`📄 Google Scholar Results: Found ${results.length} papers`);
         
         return {
           content: [{
@@ -829,7 +840,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 results.push(PaperFactory.toDict(paper));
               }
             } catch (error) {
-              console.error(`Error getting paper by DOI from ${platformName}:`, error);
+              debugLog(`Error getting paper by DOI from ${platformName}:`, error);
             }
           }
         } else {
@@ -899,11 +910,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       default:
-        console.error(`Unknown tool requested: ${name}`);
+        debugLog(`Unknown tool requested: ${name}`);
         throw new Error(`Unknown tool: ${name}`);
     }
   } catch (error: any) {
-    console.error(`Error in tool ${name}:`, error);
+    debugLog(`Error in tool ${name}:`, error);
     return {
       content: [{
         type: 'text',
@@ -919,41 +930,46 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
  */
 async function main() {
   try {
-    console.error('🚀 Starting Paper Search MCP Server (Node.js)...');
-    console.error(`📍 Working directory: ${process.cwd()}`);
-    console.error(`📦 Node.js version: ${process.version}`);
-    console.error(`🔧 Process arguments:`, process.argv);
+    debugLog('🚀 Starting Paper Search MCP Server (Node.js)...');
+    debugLog(`📍 Working directory: ${process.cwd()}`);
+    debugLog(`📦 Node.js version: ${process.version}`);
+    debugLog(`🔧 Process arguments:`, process.argv);
     
     // 连接到标准输入输出传输
     const transport = new StdioServerTransport();
     
-    console.error('📡 Connecting to stdio transport...');
+    debugLog('📡 Connecting to stdio transport...');
     await server.connect(transport);
     
-    console.error('✅ Paper Search MCP Server is running!');
-    console.error('🔌 Ready to receive MCP protocol messages via stdio');
+    debugLog('✅ Paper Search MCP Server is running!');
+    debugLog('🔌 Ready to receive MCP protocol messages via stdio');
     
     // 注意：MCP服务器通过stdio通信，不监听网络端口
-    console.error('ℹ️  Note: MCP servers communicate via stdio, not network ports');
+    debugLog('ℹ️  Note: MCP servers communicate via stdio, not network ports');
   } catch (error) {
-    console.error('❌ Failed to start server:', error);
+    debugLog('❌ Failed to start server:', error);
     process.exit(1);
   }
 }
 
-// 处理未捕获的错误
+// 处理未捕获的错误 - MCP模式下更温和
 process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
-  process.exit(1);
+  if (!isMCPMode) {
+    debugLog('Uncaught Exception:', error);
+    process.exit(1);
+  }
+  // MCP模式下不立即退出，避免干扰协议通信
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  process.exit(1);
+  if (!isMCPMode) {
+    debugLog('Unhandled Rejection at:', promise, 'reason:', reason);
+    process.exit(1);
+  }
 });
 
 // 启动服务器 - 直接调用main()确保服务器总是启动
 main().catch((error) => {
-  console.error('Failed to start MCP server:', error);
+  debugLog('Failed to start MCP server:', error);
   process.exit(1);
 });
