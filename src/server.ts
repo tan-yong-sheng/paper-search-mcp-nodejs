@@ -23,6 +23,10 @@ import { SemanticScholarSearcher } from './platforms/SemanticScholarSearcher.js'
 import { IACRSearcher } from './platforms/IACRSearcher.js';
 import { GoogleScholarSearcher } from './platforms/GoogleScholarSearcher.js';
 import { SciHubSearcher } from './platforms/SciHubSearcher.js';
+import { ScienceDirectSearcher } from './platforms/ScienceDirectSearcher.js';
+import { SpringerSearcher } from './platforms/SpringerSearcher.js';
+import { WileySearcher } from './platforms/WileySearcher.js';
+import { ScopusSearcher } from './platforms/ScopusSearcher.js';
 import { PaperFactory, Paper } from './models/Paper.js';
 import { PaperSource } from './platforms/PaperSource.js';
 
@@ -64,6 +68,10 @@ let searchers: {
   googlescholar: GoogleScholarSearcher;
   scholar: GoogleScholarSearcher;
   scihub: SciHubSearcher;
+  sciencedirect: ScienceDirectSearcher;
+  springer: SpringerSearcher;
+  wiley: WileySearcher;
+  scopus: ScopusSearcher;
 } | null = null;
 
 const initializeSearchers = () => {
@@ -83,6 +91,10 @@ const initializeSearchers = () => {
   const iacrSearcher = new IACRSearcher();
   const googleScholarSearcher = new GoogleScholarSearcher();
   const sciHubSearcher = new SciHubSearcher();
+  const scienceDirectSearcher = new ScienceDirectSearcher(process.env.ELSEVIER_API_KEY);
+  const springerSearcher = new SpringerSearcher(process.env.SPRINGER_API_KEY);
+  const wileySearcher = new WileySearcher(process.env.WILEY_TDM_TOKEN);
+  const scopusSearcher = new ScopusSearcher(process.env.ELSEVIER_API_KEY);
 
   searchers = {
     arxiv: arxivSearcher,
@@ -95,7 +107,11 @@ const initializeSearchers = () => {
     iacr: iacrSearcher,
     googlescholar: googleScholarSearcher,
     scholar: googleScholarSearcher, // 别名
-    scihub: sciHubSearcher
+    scihub: sciHubSearcher,
+    sciencedirect: scienceDirectSearcher,
+    springer: springerSearcher,
+    wiley: wileySearcher,
+    scopus: scopusSearcher
   };
   
   debugLog('✅ Searchers initialized successfully');
@@ -105,7 +121,7 @@ const initializeSearchers = () => {
 // 工具参数类型定义
 interface SearchPapersParams {
   query: string;
-  platform?: 'arxiv' | 'webofscience' | 'pubmed' | 'wos' | 'biorxiv' | 'medrxiv' | 'semantic' | 'iacr' | 'googlescholar' | 'scholar' | 'scihub' | 'all';
+  platform?: 'arxiv' | 'webofscience' | 'pubmed' | 'wos' | 'biorxiv' | 'medrxiv' | 'semantic' | 'iacr' | 'googlescholar' | 'scholar' | 'scihub' | 'sciencedirect' | 'springer' | 'wiley' | 'scopus' | 'all';
   maxResults?: number;
   year?: string;
   author?: string;
@@ -179,7 +195,7 @@ interface CheckSciHubMirrorsParams {
 
 interface DownloadPaperParams {
   paperId: string;
-  platform: 'arxiv' | 'biorxiv' | 'medrxiv' | 'semantic' | 'iacr' | 'scihub';
+  platform: 'arxiv' | 'biorxiv' | 'medrxiv' | 'semantic' | 'iacr' | 'scihub' | 'springer' | 'wiley';
   savePath?: string;
 }
 
@@ -211,8 +227,8 @@ const TOOLS: Tool[] = [
         query: { type: 'string', description: 'Search query string' },
         platform: { 
           type: 'string', 
-          enum: ['arxiv', 'webofscience', 'pubmed', 'wos', 'biorxiv', 'medrxiv', 'semantic', 'iacr', 'googlescholar', 'scholar', 'scihub', 'all'],
-          description: 'Platform to search (arxiv, webofscience/wos, pubmed, biorxiv, medrxiv, semantic, iacr, googlescholar/scholar, scihub, or all)'
+          enum: ['arxiv', 'webofscience', 'pubmed', 'wos', 'biorxiv', 'medrxiv', 'semantic', 'iacr', 'googlescholar', 'scholar', 'scihub', 'sciencedirect', 'springer', 'wiley', 'scopus', 'all'],
+          description: 'Platform to search (arxiv, webofscience/wos, pubmed, biorxiv, medrxiv, semantic, iacr, googlescholar/scholar, scihub, sciencedirect, springer, wiley, scopus, or all)'
         },
         maxResults: { 
           type: 'number', 
@@ -408,7 +424,7 @@ const TOOLS: Tool[] = [
       type: 'object',
       properties: {
         paperId: { type: 'string', description: 'Paper ID (e.g., arXiv ID, DOI for Sci-Hub)' },
-        platform: { type: 'string', enum: ['arxiv', 'biorxiv', 'medrxiv', 'semantic', 'iacr', 'scihub'], description: 'Platform where the paper is from' },
+        platform: { type: 'string', enum: ['arxiv', 'biorxiv', 'medrxiv', 'semantic', 'iacr', 'scihub', 'springer', 'wiley'], description: 'Platform where the paper is from' },
         savePath: { 
           type: 'string',
           description: 'Directory to save the PDF file'
