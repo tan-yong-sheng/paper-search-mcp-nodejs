@@ -2,16 +2,16 @@
 
 ## English|[中文](README-sc.md)
 
-A Node.js Model Context Protocol (MCP) server for searching and downloading academic papers from multiple sources, including arXiv, Web of Science, PubMed, Google Scholar, Sci-Hub, and **9 academic platforms** in total.
+A Node.js Model Context Protocol (MCP) server for searching and downloading academic papers from multiple sources, including arXiv, Web of Science, PubMed, Google Scholar, Sci-Hub, ScienceDirect, Springer, Wiley, Scopus, and **13 academic platforms** in total.
 
 ![Node.js](https://img.shields.io/badge/node.js->=18.0.0-green.svg)
 ![TypeScript](https://img.shields.io/badge/typescript-^5.5.3-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Platforms](https://img.shields.io/badge/platforms-9-brightgreen.svg)
+![Platforms](https://img.shields.io/badge/platforms-13-brightgreen.svg)
 
 ## ✨ Key Features
 
-- **🌍 9 Academic Platforms**: arXiv, Web of Science, PubMed, Google Scholar, bioRxiv, medRxiv, Semantic Scholar, IACR ePrint, Sci-Hub
+- **🌍 13 Academic Platforms**: arXiv, Web of Science, PubMed, Google Scholar, bioRxiv, medRxiv, Semantic Scholar, IACR ePrint, Sci-Hub, ScienceDirect, Springer Nature, Wiley, Scopus
 - **🔗 MCP Protocol Integration**: Seamless integration with Claude Desktop and other AI assistants
 - **📊 Unified Data Model**: Standardized paper format across all platforms
 - **⚡ High-Performance Search**: Concurrent search with intelligent rate limiting
@@ -32,8 +32,12 @@ A Node.js Model Context Protocol (MCP) server for searching and downloading acad
 | **Semantic Scholar** | ✅ | ✅ | ❌ | ✅ | 🟡 Optional | AI semantic search |
 | **IACR ePrint** | ✅ | ✅ | ✅ | ❌ | ❌ | Cryptography papers |
 | **Sci-Hub** | ✅ | ✅ | ❌ | ❌ | ❌ | Universal paper access via DOI |
+| **ScienceDirect** | ✅ | ❌ | ❌ | ✅ | ✅ Required | Elsevier's full-text database |
+| **Springer** | ✅ | ✅* | ❌ | ❌ | ✅ Required | Dual API: Metadata & OpenAccess |
+| **Wiley** | ✅ | ✅ | ❌ | ❌ | ✅ Required | Text and Data Mining API |
+| **Scopus** | ✅ | ❌ | ❌ | ✅ | ✅ Required | Largest citation database |
 
-✅ Supported | ❌ Not supported | 🟡 Optional
+✅ Supported | ❌ Not supported | 🟡 Optional | ✅* Open Access only
 
 ## 🚀 Quick Start
 
@@ -79,6 +83,15 @@ cp .env.example .env
    
    # Semantic Scholar API key (optional, increases rate limits)
    SEMANTIC_SCHOLAR_API_KEY=your_semantic_scholar_api_key
+   
+   # Elsevier API key (required for ScienceDirect and Scopus)
+   ELSEVIER_API_KEY=your_elsevier_api_key
+   
+   # Springer Nature API key (required for Springer)
+   SPRINGER_API_KEY=your_springer_api_key
+   
+   # Wiley TDM token (required for Wiley)
+   WILEY_TDM_TOKEN=your_wiley_tdm_token
    ```
 
 ### Build and Run
@@ -168,7 +181,7 @@ search_papers({
 **Platform Selection Behavior:**
 - `platform: "all"` - Randomly selects one platform for efficient, focused results
 - Specific platform - Searches only that platform
-- Available platforms: `arxiv`, `webofscience`/`wos`, `pubmed`, `biorxiv`, `medrxiv`, `semantic`, `iacr`, `googlescholar`/`scholar`, `scihub`
+- Available platforms: `arxiv`, `webofscience`/`wos`, `pubmed`, `biorxiv`, `medrxiv`, `semantic`, `iacr`, `googlescholar`/`scholar`, `scihub`, `sciencedirect`, `springer`, `wiley`, `scopus`
 ### `search_arxiv`
 Search arXiv preprints specifically
 
@@ -343,7 +356,11 @@ src/
 │   ├── BioRxivSearcher.ts    # bioRxiv/medRxiv searcher
 |   ├── SemanticScholarSearcher.ts # Semantic Scholar searcher
 |   ├── IACRSearcher.ts       # IACR ePrint searcher
-|   └── SciHubSearcher.ts     # Sci-Hub searcher with mirror management
+|   ├── SciHubSearcher.ts     # Sci-Hub searcher with mirror management
+|   ├── ScienceDirectSearcher.ts # ScienceDirect (Elsevier) searcher
+|   ├── SpringerSearcher.ts   # Springer Nature searcher (Metadata & OpenAccess APIs)
+|   ├── WileySearcher.ts      # Wiley TDM API searcher
+|   └── ScopusSearcher.ts     # Scopus citation database searcher
 ├── utils/
 │   └── RateLimiter.ts        # Token bucket rate limiter
 └── server.ts                 # MCP server main file

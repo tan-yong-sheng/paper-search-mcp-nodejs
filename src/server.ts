@@ -591,7 +591,7 @@ const TOOLS: Tool[] = [
   },
   {
     name: 'search_springer',
-    description: 'Search academic papers from Springer Nature database (requires API key)',
+    description: 'Search academic papers from Springer Nature database. Uses Metadata API by default (all content) or OpenAccess API when openAccess=true (full text available). Same API key works for both.',
     inputSchema: {
       type: 'object',
       properties: {

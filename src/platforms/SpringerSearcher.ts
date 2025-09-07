@@ -69,8 +69,9 @@ export class SpringerSearcher extends PaperSource {
     });
 
     // Springer rate limits:
-    // - 5000 requests per day
+    // - 5000 requests per day for both APIs combined
     // - Approximately 200 per hour or 3-4 per minute to be safe
+    // Note: The same API key works for both Metadata and OpenAccess APIs
     this.rateLimiter = new RateLimiter({ 
       requestsPerSecond: 0.05, // Conservative: 3 per minute
       burstCapacity: 5
@@ -127,8 +128,8 @@ export class SpringerSearcher extends PaperSource {
 
       await this.rateLimiter.waitForPermission();
 
-      const endpoint = useOpenAccess ? '/json' : '/json';
-      const response = await client.get<SpringerResponse>(endpoint, { params });
+      // Both APIs use the same endpoint path, the client baseURL determines which API is used
+      const response = await client.get<SpringerResponse>('/json', { params });
 
       if (response.data.result) {
         for (const result of response.data.result) {
@@ -215,8 +216,8 @@ export class SpringerSearcher extends PaperSource {
   }
 
   async downloadPdf(doi: string, options: { savePath?: string } = {}): Promise<string> {
-    // Check if paper is open access first
-    const papers = await this.search(doi, { maxResults: 1 } as any);
+    // Always use OpenAccess API for downloading PDFs
+    const papers = await this.search(doi, { maxResults: 1, openAccess: true } as any);
     
     if (papers.length === 0 || !papers[0].pdfUrl) {
       throw new Error('Paper not found or PDF not available (may require institutional access)');
