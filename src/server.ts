@@ -193,6 +193,48 @@ interface CheckSciHubMirrorsParams {
   forceCheck?: boolean;
 }
 
+interface SearchScienceDirectParams {
+  query: string;
+  maxResults?: number;
+  year?: string;
+  author?: string;
+  journal?: string;
+  openAccess?: boolean;
+}
+
+interface SearchSpringerParams {
+  query: string;
+  maxResults?: number;
+  year?: string;
+  author?: string;
+  journal?: string;
+  subject?: string;
+  openAccess?: boolean;
+  type?: 'Journal' | 'Book' | 'Chapter';
+}
+
+interface SearchWileyParams {
+  query: string;
+  maxResults?: number;
+  year?: string;
+  author?: string;
+  journal?: string;
+  subject?: string;
+  openAccess?: boolean;
+}
+
+interface SearchScopusParams {
+  query: string;
+  maxResults?: number;
+  year?: string;
+  author?: string;
+  journal?: string;
+  affiliation?: string;
+  subject?: string;
+  openAccess?: boolean;
+  documentType?: 'ar' | 'cp' | 're' | 'bk' | 'ch';
+}
+
 interface DownloadPaperParams {
   paperId: string;
   platform: 'arxiv' | 'biorxiv' | 'medrxiv' | 'semantic' | 'iacr' | 'scihub' | 'springer' | 'wiley';
@@ -521,6 +563,116 @@ const TOOLS: Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {}
+    }
+  },
+  {
+    name: 'search_sciencedirect',
+    description: 'Search academic papers from Elsevier ScienceDirect database (requires API key)',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Search query string' },
+        maxResults: { 
+          type: 'number', 
+          minimum: 1, 
+          maximum: 100,
+          description: 'Maximum number of results to return'
+        },
+        year: { type: 'string', description: 'Year filter (e.g., "2023", "2020-2023")' },
+        author: { type: 'string', description: 'Author name filter' },
+        journal: { type: 'string', description: 'Journal name filter' },
+        openAccess: { 
+          type: 'boolean', 
+          description: 'Filter for open access articles only' 
+        }
+      },
+      required: ['query']
+    }
+  },
+  {
+    name: 'search_springer',
+    description: 'Search academic papers from Springer Nature database (requires API key)',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Search query string' },
+        maxResults: { 
+          type: 'number', 
+          minimum: 1, 
+          maximum: 100,
+          description: 'Maximum number of results to return'
+        },
+        year: { type: 'string', description: 'Year filter (e.g., "2023", "2020-2023")' },
+        author: { type: 'string', description: 'Author name filter' },
+        journal: { type: 'string', description: 'Journal name filter' },
+        subject: { type: 'string', description: 'Subject area filter' },
+        openAccess: { 
+          type: 'boolean', 
+          description: 'Search only open access content' 
+        },
+        type: { 
+          type: 'string', 
+          enum: ['Journal', 'Book', 'Chapter'],
+          description: 'Publication type filter' 
+        }
+      },
+      required: ['query']
+    }
+  },
+  {
+    name: 'search_wiley',
+    description: 'Search academic papers from Wiley Online Library (requires TDM token)',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Search query string' },
+        maxResults: { 
+          type: 'number', 
+          minimum: 1, 
+          maximum: 100,
+          description: 'Maximum number of results to return'
+        },
+        year: { type: 'string', description: 'Year filter (e.g., "2023", "2020-2023")' },
+        author: { type: 'string', description: 'Author name filter' },
+        journal: { type: 'string', description: 'Journal name filter' },
+        subject: { type: 'string', description: 'Subject area filter' },
+        openAccess: { 
+          type: 'boolean', 
+          description: 'Filter for open access articles only' 
+        }
+      },
+      required: ['query']
+    }
+  },
+  {
+    name: 'search_scopus',
+    description: 'Search the Scopus abstract and citation database (requires Elsevier API key)',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Search query string' },
+        maxResults: { 
+          type: 'number', 
+          minimum: 1, 
+          maximum: 25,
+          description: 'Maximum number of results (max 25 per request)'
+        },
+        year: { type: 'string', description: 'Year filter (e.g., "2023", "2020-2023")' },
+        author: { type: 'string', description: 'Author name filter' },
+        journal: { type: 'string', description: 'Journal name filter' },
+        affiliation: { type: 'string', description: 'Institution/affiliation filter' },
+        subject: { type: 'string', description: 'Subject area filter' },
+        openAccess: { 
+          type: 'boolean', 
+          description: 'Filter for open access articles only' 
+        },
+        documentType: { 
+          type: 'string', 
+          enum: ['ar', 'cp', 're', 'bk', 'ch'],
+          description: 'Document type: ar=article, cp=conference paper, re=review, bk=book, ch=chapter' 
+        }
+      },
+      required: ['query']
     }
   }
 ];
@@ -994,6 +1146,124 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [{
             type: 'text',
             text: `Sci-Hub Mirror Status:\n\n${JSON.stringify(mirrorStatus, null, 2)}`
+          }]
+        };
+      }
+
+      case 'search_sciencedirect': {
+        const params = args as unknown as SearchScienceDirectParams;
+        const { query, maxResults = 10, year, author, journal, openAccess } = params;
+        
+        if (!process.env.ELSEVIER_API_KEY) {
+          throw new Error('Elsevier API key not configured. Please set ELSEVIER_API_KEY environment variable.');
+        }
+
+        const results = await currentSearchers.sciencedirect.search(query, { 
+          maxResults, 
+          year, 
+          author, 
+          journal,
+          openAccess 
+        } as any);
+
+        return {
+          content: [{
+            type: 'text',
+            text: `Found ${results.length} ScienceDirect papers.\n\n${JSON.stringify(
+              results.map((paper: Paper) => PaperFactory.toDict(paper)), 
+              null, 
+              2
+            )}`
+          }]
+        };
+      }
+
+      case 'search_springer': {
+        const params = args as unknown as SearchSpringerParams;
+        const { query, maxResults = 10, year, author, journal, subject, openAccess, type } = params;
+        
+        if (!process.env.SPRINGER_API_KEY) {
+          throw new Error('Springer API key not configured. Please set SPRINGER_API_KEY environment variable.');
+        }
+
+        const results = await currentSearchers.springer.search(query, { 
+          maxResults, 
+          year, 
+          author, 
+          journal,
+          subject,
+          openAccess,
+          type
+        } as any);
+
+        return {
+          content: [{
+            type: 'text',
+            text: `Found ${results.length} Springer papers.\n\n${JSON.stringify(
+              results.map((paper: Paper) => PaperFactory.toDict(paper)), 
+              null, 
+              2
+            )}`
+          }]
+        };
+      }
+
+      case 'search_wiley': {
+        const params = args as unknown as SearchWileyParams;
+        const { query, maxResults = 10, year, author, journal, subject, openAccess } = params;
+        
+        if (!process.env.WILEY_TDM_TOKEN) {
+          throw new Error('Wiley TDM token not configured. Please set WILEY_TDM_TOKEN environment variable.');
+        }
+
+        const results = await currentSearchers.wiley.search(query, { 
+          maxResults, 
+          year, 
+          author, 
+          journal,
+          subject,
+          openAccess
+        } as any);
+
+        return {
+          content: [{
+            type: 'text',
+            text: `Found ${results.length} Wiley papers.\n\n${JSON.stringify(
+              results.map((paper: Paper) => PaperFactory.toDict(paper)), 
+              null, 
+              2
+            )}`
+          }]
+        };
+      }
+
+      case 'search_scopus': {
+        const params = args as unknown as SearchScopusParams;
+        const { query, maxResults = 10, year, author, journal, affiliation, subject, openAccess, documentType } = params;
+        
+        if (!process.env.ELSEVIER_API_KEY) {
+          throw new Error('Elsevier API key not configured. Please set ELSEVIER_API_KEY environment variable.');
+        }
+
+        const results = await currentSearchers.scopus.search(query, { 
+          maxResults, 
+          year, 
+          author, 
+          journal,
+          affiliation,
+          subject,
+          openAccess,
+          documentType
+        } as any);
+
+        return {
+          content: [{
+            type: 'text',
+            text: `Found ${results.length} Scopus papers.\n\n${JSON.stringify(
+              results.map((paper: Paper) => PaperFactory.toDict(paper)), 
+              null, 
+              2
+            )}`
           }]
         };
       }
