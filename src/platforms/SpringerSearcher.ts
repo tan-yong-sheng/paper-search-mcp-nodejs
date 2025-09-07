@@ -3,11 +3,13 @@
  * 
  * Documentation: https://dev.springernature.com/
  * API Endpoints:
- * - Metadata API: https://api.springernature.com/metadata/json
- * - OpenAccess API: https://api.springernature.com/openaccess/json
+ * - Metadata API v2: https://api.springernature.com/meta/v2/json
+ * - OpenAccess API: https://api.springernature.com/openaccess/json (if available with your key)
  * 
  * Required API Key: Yes (api_key parameter)
  * Get API key from: https://dev.springernature.com/signup
+ * 
+ * Note: Meta API v2 is the primary API. OpenAccess API may require special access.
  */
 
 import axios, { AxiosInstance } from 'axios';
@@ -16,11 +18,18 @@ import { Paper, PaperFactory } from '../models/Paper.js';
 import { RateLimiter } from '../utils/RateLimiter.js';
 
 interface SpringerResponse {
-  result: SpringerResult[];
+  // Meta v2 API structure
+  records?: SpringerResult[];  // v2 API: actual paper records
+  result?: Array<{             // v2 API: search metadata
+    total: string;
+    start: string;
+    pageLength: string;
+    recordsDisplayed: string;
+  }>;
+  // Common fields
   apiMessage?: string;
   facets?: any[];
   query?: string;
-  records?: string;
   nextPage?: string;
 }
 
@@ -50,17 +59,24 @@ export class SpringerSearcher extends PaperSource {
   private metadataClient: AxiosInstance;
   private openAccessClient: AxiosInstance;
   private rateLimiter: RateLimiter;
+  private hasOpenAccessAPI: boolean | undefined;
+  private openAccessApiKey?: string;
 
-  constructor(apiKey?: string) {
+  constructor(apiKey?: string, openAccessApiKey?: string) {
     super('springer', 'https://api.springernature.com', apiKey);
     
+    // Check for separate OpenAccess API key from environment
+    this.openAccessApiKey = openAccessApiKey || process.env.SPRINGER_OPENACCESS_API_KEY || apiKey;
+    
+    // Use v2 API endpoint for metadata
     this.metadataClient = axios.create({
-      baseURL: 'https://api.springernature.com/metadata',
+      baseURL: 'https://api.springernature.com/meta/v2',
       headers: {
         'Accept': 'application/json'
       }
     });
 
+    // OpenAccess API client (may not be available for all API keys)
     this.openAccessClient = axios.create({
       baseURL: 'https://api.springernature.com/openaccess',
       headers: {
@@ -88,19 +104,29 @@ export class SpringerSearcher extends PaperSource {
     const papers: Paper[] = [];
 
     try {
-      // Determine which API to use
-      const useOpenAccess = customOptions.openAccess === true;
-      const client = useOpenAccess ? this.openAccessClient : this.metadataClient;
+      // Decide which API to use
+      let useOpenAccess = customOptions.openAccess === true;
+      
+      // If openAccess is requested and we haven't tested the API yet, test it
+      if (useOpenAccess && this.hasOpenAccessAPI === undefined) {
+        await this.testOpenAccessAPI();
+      }
+      
+      // Fall back to Meta API if OpenAccess API is not available
+      if (useOpenAccess && !this.hasOpenAccessAPI) {
+        console.log('OpenAccess API not available, using Meta API with filtering');
+        useOpenAccess = false;
+      }
       
       // Build query parameters
       const params: any = {
         q: query,
-        api_key: this.apiKey,
+        api_key: useOpenAccess ? this.openAccessApiKey : this.apiKey,
         s: 1, // start index
         p: maxResults // page size
       };
 
-      // Add filters
+      // Add filters - Note: Some filters may require premium access
       if (options.author) {
         params.q += ` name:"${options.author}"`;
       }
@@ -110,6 +136,7 @@ export class SpringerSearcher extends PaperSource {
       }
 
       if (options.year) {
+        // Year filter may cause 403 for some API keys
         if (options.year.includes('-')) {
           const [startYear, endYear] = options.year.split('-');
           params.q += ` year:${startYear} TO ${endYear || '*'}`;
@@ -119,22 +146,52 @@ export class SpringerSearcher extends PaperSource {
       }
 
       if (customOptions.subject) {
+        // Subject filter may cause 403 for some API keys
         params.q += ` subject:"${customOptions.subject}"`;
       }
 
       if (customOptions.type) {
+        // Type filter generally works
         params.q += ` type:${customOptions.type}`;
       }
 
       await this.rateLimiter.waitForPermission();
 
-      // Both APIs use the same endpoint path, the client baseURL determines which API is used
-      const response = await client.get<SpringerResponse>('/json', { params });
+      // Choose the appropriate API
+      let response: any;
+      if (useOpenAccess) {
+        // Use OpenAccess API (if available)
+        response = await this.openAccessClient.get<SpringerResponse>('/json', { params });
+      } else {
+        // Use Meta v2 API
+        response = await this.metadataClient.get<SpringerResponse>('/json', { params });
+      }
 
-      if (response.data.result) {
-        for (const result of response.data.result) {
+      // Handle different response structures
+      // Meta v2 API: records contains the actual papers, result contains metadata
+      // OpenAccess API: might use either records or result for the actual papers
+      let results: SpringerResult[] = [];
+      
+      // For Meta v2 API, records is always the array of papers
+      if (response.data.records && Array.isArray(response.data.records)) {
+        results = response.data.records;
+      } 
+      // For older API versions or different response format
+      else if (response.data.result && Array.isArray(response.data.result) && 
+               response.data.result.length > 0 && 
+               response.data.result[0].title) {
+        // If result contains actual papers (has title field), use it
+        results = response.data.result as SpringerResult[];
+      }
+      
+      if (results && results.length > 0) {
+        for (const result of results) {
           const paper = this.parseResult(result);
           if (paper) {
+            // If openAccess filter was requested but using Meta API, filter results
+            if (customOptions.openAccess && !useOpenAccess && result.openaccess !== 'true') {
+              continue;
+            }
             papers.push(paper);
           }
         }
@@ -144,7 +201,20 @@ export class SpringerSearcher extends PaperSource {
     } catch (error: any) {
       console.error('Springer search error:', error.message);
       if (error.response?.status === 401) {
-        throw new Error('Invalid or missing Springer API key');
+        throw new Error('Invalid or missing Springer API key. Please check your API key.');
+      }
+      if (error.response?.status === 403) {
+        // Some filters require premium access
+        console.warn('Springer API returned 403 - some filters may require premium access');
+        // Try a simpler query without advanced filters
+        if (options.year || customOptions.subject) {
+          console.log('Retrying without year/subject filters...');
+          const simpleOptions = { ...options };
+          delete simpleOptions.year;
+          delete (simpleOptions as any).subject;
+          return this.search(query, simpleOptions);
+        }
+        throw new Error('Springer API access forbidden. Some filters require premium access.');
       }
       if (error.response?.status === 429) {
         throw new Error('Springer rate limit exceeded. Please try again later.');
@@ -216,11 +286,20 @@ export class SpringerSearcher extends PaperSource {
   }
 
   async downloadPdf(doi: string, options: { savePath?: string } = {}): Promise<string> {
-    // Always use OpenAccess API for downloading PDFs
-    const papers = await this.search(doi, { maxResults: 1, openAccess: true } as any);
+    // Search for the paper and check if it has a PDF URL
+    const papers = await this.search(doi, { maxResults: 1 });
     
-    if (papers.length === 0 || !papers[0].pdfUrl) {
-      throw new Error('Paper not found or PDF not available (may require institutional access)');
+    if (papers.length === 0) {
+      throw new Error('Paper not found');
+    }
+    
+    if (!papers[0].pdfUrl) {
+      // Try searching with openAccess filter to get PDF links
+      const openAccessPapers = await this.search(doi, { maxResults: 1, openAccess: true } as any);
+      if (openAccessPapers.length === 0 || !openAccessPapers[0].pdfUrl) {
+        throw new Error('PDF not available (may require institutional access or not be open access)');
+      }
+      papers[0] = openAccessPapers[0];
     }
 
     const paper = papers[0];
@@ -260,12 +339,43 @@ export class SpringerSearcher extends PaperSource {
   getCapabilities(): PlatformCapabilities {
     return {
       search: true,
-      download: true, // For open access papers
+      download: true, // For papers with available PDFs
       fullText: false,
       citations: false,
       requiresApiKey: true,
       supportedOptions: ['maxResults', 'year', 'author', 'journal']
     };
+  }
+
+  /**
+   * Test if OpenAccess API is available for this API key
+   */
+  private async testOpenAccessAPI(): Promise<void> {
+    if (this.hasOpenAccessAPI !== undefined) {
+      return;
+    }
+    
+    try {
+      const response = await this.openAccessClient.get('/json', {
+        params: {
+          q: 'test',
+          api_key: this.openAccessApiKey,
+          s: 1,
+          p: 1
+        }
+      });
+      this.hasOpenAccessAPI = response.status === 200;
+      console.log('OpenAccess API is available');
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        this.hasOpenAccessAPI = false;
+        console.log('OpenAccess API is not available (401 Unauthorized - check API key permissions)');
+      } else {
+        // Network error or other issue, assume not available
+        this.hasOpenAccessAPI = false;
+        console.log('OpenAccess API test failed:', error.message);
+      }
+    }
   }
 
   async readPaper(paperId: string, options: DownloadOptions = {}): Promise<string> {

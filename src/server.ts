@@ -92,7 +92,10 @@ const initializeSearchers = () => {
   const googleScholarSearcher = new GoogleScholarSearcher();
   const sciHubSearcher = new SciHubSearcher();
   const scienceDirectSearcher = new ScienceDirectSearcher(process.env.ELSEVIER_API_KEY);
-  const springerSearcher = new SpringerSearcher(process.env.SPRINGER_API_KEY);
+  const springerSearcher = new SpringerSearcher(
+    process.env.SPRINGER_API_KEY,
+    process.env.SPRINGER_OPENACCESS_API_KEY
+  );
   const wileySearcher = new WileySearcher(process.env.WILEY_TDM_TOKEN);
   const scopusSearcher = new ScopusSearcher(process.env.ELSEVIER_API_KEY);
 

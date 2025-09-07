@@ -1,16 +1,16 @@
 # Paper Search MCP (Node.js)
 
 ##  中文|[English](README.md)
-一个基于Node.js的模型上下文协议(MCP)服务器，用于搜索和下载多个学术数据库的论文，包括arXiv、Web of Science、PubMed、Google Scholar等**8个学术平台**。
+一个基于Node.js的模型上下文协议(MCP)服务器，用于搜索和下载多个学术数据库的论文，包括arXiv、Web of Science、PubMed、Google Scholar、Sci-Hub、ScienceDirect、Springer、Wiley、Scopus等**13个学术平台**。
 
 ![Node.js](https://img.shields.io/badge/node.js->=18.0.0-green.svg)
 ![TypeScript](https://img.shields.io/badge/typescript-^5.5.3-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Platforms](https://img.shields.io/badge/platforms-8-brightgreen.svg)
+![Platforms](https://img.shields.io/badge/platforms-13-brightgreen.svg)
 
 ## ✨ 核心特性
 
-- **🌍 8个学术平台**: arXiv, Web of Science, PubMed, Google Scholar, bioRxiv, medRxiv, Semantic Scholar, IACR ePrint
+- **🌍 13个学术平台**: arXiv, Web of Science, PubMed, Google Scholar, bioRxiv, medRxiv, Semantic Scholar, IACR ePrint, Sci-Hub, ScienceDirect, Springer Nature, Wiley, Scopus
 - **🔗 MCP协议集成**: 与Claude Desktop和其他AI助手无缝集成
 - **📊 统一数据模型**: 标准化的论文数据格式，支持所有平台
 - **⚡ 高性能搜索**: 并发搜索和智能速率限制
@@ -30,8 +30,13 @@
 | **medRxiv** | ✅ | ✅ | ✅ | ❌ | ❌ | 医学预印本 |
 | **Semantic Scholar** | ✅ | ✅ | ❌ | ✅ | 🟡 可选 | AI语义搜索 |
 | **IACR ePrint** | ✅ | ✅ | ✅ | ❌ | ❌ | 密码学论文 |
+| **Sci-Hub** | ✅ | ✅ | ❌ | ❌ | ❌ | 通过DOI获取论文 |
+| **ScienceDirect** | ✅ | ❌ | ❌ | ✅ | ✅ 必需 | 爱思唯尔全文数据库 |
+| **Springer Nature** | ✅ | ✅* | ❌ | ❌ | ✅ 必需 | 双API：Meta v2 & OpenAccess |
+| **Wiley** | ✅ | ✅ | ❌ | ❌ | ✅ 必需 | 文本数据挖掘API |
+| **Scopus** | ✅ | ❌ | ❌ | ✅ | ✅ 必需 | 最大引文数据库 |
 
-✅ 已支持 | ❌ 不支持 | 🟡 可选
+✅ 已支持 | ❌ 不支持 | 🟡 可选 | ✅* 仅开放获取
 
 ## 🚀 快速开始
 
@@ -77,6 +82,17 @@ cp .env.example .env
    
    # Semantic Scholar API密钥（可选，提升请求限制）
    SEMANTIC_SCHOLAR_API_KEY=your_semantic_scholar_api_key
+   
+   # Elsevier API密钥（ScienceDirect和Scopus必需）
+   ELSEVIER_API_KEY=your_elsevier_api_key
+   
+   # Springer Nature API密钥（Springer必需）
+   SPRINGER_API_KEY=your_springer_api_key  # Meta v2 API
+   # 可选：OpenAccess API单独密钥（如果与主密钥不同）
+   SPRINGER_OPENACCESS_API_KEY=your_openaccess_api_key
+   
+   # Wiley TDM令牌（Wiley必需）
+   WILEY_TDM_TOKEN=your_wiley_tdm_token
    ```
 
 ### 构建和运行
@@ -166,7 +182,7 @@ search_papers({
 **平台选择行为：**
 - `platform: "all"` - 随机选择一个平台进行高效、聚焦的搜索
 - 特定平台 - 仅搜索指定平台
-- 可用平台: `arxiv`, `webofscience`/`wos`, `pubmed`, `biorxiv`, `medrxiv`, `semantic`, `iacr`, `googlescholar`/`scholar`
+- 可用平台: `arxiv`, `webofscience`/`wos`, `pubmed`, `biorxiv`, `medrxiv`, `semantic`, `iacr`, `googlescholar`/`scholar`, `scihub`, `sciencedirect`, `springer`, `wiley`, `scopus`
 ### `search_arxiv`
 专门搜索arXiv预印本
 
@@ -252,6 +268,80 @@ search_iacr({
 })
 ```
 
+### `search_scihub`
+通过DOI搜索并下载Sci-Hub论文
+
+```typescript
+search_scihub({
+  doiOrUrl: "10.1038/nature12373",
+  downloadPdf: true,
+  savePath: "./downloads"
+})
+```
+
+### `search_sciencedirect`
+搜索爱思唯尔ScienceDirect数据库
+
+```typescript
+search_sciencedirect({
+  query: "artificial intelligence",
+  maxResults: 10,
+  year: "2023",
+  openAccess: true  // 仅搜索开放获取论文
+})
+```
+
+### `search_springer`
+搜索Springer Nature数据库
+
+```typescript
+// 搜索所有Springer内容
+search_springer({
+  query: "machine learning",
+  maxResults: 10
+})
+
+// 仅搜索开放获取论文
+search_springer({
+  query: "COVID-19",
+  openAccess: true,  // 使用OpenAccess API（如果可用）
+  maxResults: 5
+})
+```
+
+### `search_wiley`
+搜索Wiley在线图书馆
+
+```typescript
+search_wiley({
+  query: "cancer research",
+  maxResults: 10,
+  year: "2023",
+  openAccess: true
+})
+```
+
+### `search_scopus`
+搜索Scopus引文数据库
+
+```typescript
+search_scopus({
+  query: "renewable energy",
+  maxResults: 10,
+  affiliation: "MIT",
+  documentType: "ar"  // ar=文章, cp=会议论文, re=综述
+})
+```
+
+### `check_scihub_mirrors`
+检查Sci-Hub镜像站点健康状态
+
+```typescript
+check_scihub_mirrors({
+  forceCheck: true  // 强制刷新健康检查
+})
+```
+
 ### `download_paper`
 下载论文PDF文件
 
@@ -315,7 +405,19 @@ src/
 ├── platforms/
 │   ├── PaperSource.ts        # 抽象基类
 │   ├── ArxivSearcher.ts      # arXiv搜索器
-│   └── WebOfScienceSearcher.ts # Web of Science搜索器
+│   ├── WebOfScienceSearcher.ts # Web of Science搜索器
+│   ├── PubMedSearcher.ts     # PubMed搜索器
+│   ├── GoogleScholarSearcher.ts # Google Scholar搜索器
+│   ├── BioRxivSearcher.ts    # bioRxiv/medRxiv搜索器
+│   ├── SemanticScholarSearcher.ts # Semantic Scholar搜索器
+│   ├── IACRSearcher.ts       # IACR ePrint搜索器
+│   ├── SciHubSearcher.ts     # Sci-Hub搜索器（带镜像管理）
+│   ├── ScienceDirectSearcher.ts # ScienceDirect（爱思唯尔）搜索器
+│   ├── SpringerSearcher.ts   # Springer Nature搜索器（Meta v2 & OpenAccess API）
+│   ├── WileySearcher.ts      # Wiley TDM API搜索器
+│   └── ScopusSearcher.ts     # Scopus引文数据库搜索器
+├── utils/
+│   └── RateLimiter.ts        # 令牌桶速率限制器
 └── server.ts                 # MCP服务器主文件
 ```
 
@@ -339,7 +441,24 @@ npm run lint
 npm run format
 ```
 
-## 🌟 Web of Science 特性
+## 🌟 平台特性
+
+### Springer Nature 双API系统
+
+Springer Nature提供两个API：
+
+1. **Metadata API v2**（主API）
+   - 端点：`https://api.springernature.com/meta/v2/json`
+   - 搜索所有Springer内容（订阅 + 开放获取）
+   - 需要从http://dev.springernature.com/获取API密钥
+
+2. **OpenAccess API**（可选）
+   - 端点：`https://api.springernature.com/openaccess/json`  
+   - 仅搜索开放获取内容
+   - 可能需要单独的API密钥或特殊权限
+   - 更适合查找可下载的PDF
+
+### Web of Science 特性
 
 ### 支持的API
 
@@ -376,6 +495,18 @@ search_webofscience({
 - `PY`: 发表年份
 - `DO`: DOI
 - `TI`: 标题
+
+## 🔑 API密钥需求
+
+### 必需的API密钥
+- **Web of Science**: 需要付费订阅，从[Clarivate Developer Portal](https://developer.clarivate.com/apis)获取
+- **Elsevier**: ScienceDirect和Scopus共用，从[Elsevier Developer Portal](https://dev.elsevier.com/)获取
+- **Springer Nature**: Meta API v2必需，OpenAccess API可选，从[Springer Developer Portal](https://dev.springernature.com/)获取
+- **Wiley**: 需要TDM令牌，从[Wiley TDM](https://onlinelibrary.wiley.com/library-info/resources/text-and-datamining)获取
+
+### 可选的API密钥
+- **PubMed**: 提高速率限制（从3次/秒到10次/秒）
+- **Semantic Scholar**: 提高速率限制（从20次/分钟到180次/分钟）
 
 ## 📝 许可证
 

@@ -33,7 +33,7 @@ A Node.js Model Context Protocol (MCP) server for searching and downloading acad
 | **IACR ePrint** | ✅ | ✅ | ✅ | ❌ | ❌ | Cryptography papers |
 | **Sci-Hub** | ✅ | ✅ | ❌ | ❌ | ❌ | Universal paper access via DOI |
 | **ScienceDirect** | ✅ | ❌ | ❌ | ✅ | ✅ Required | Elsevier's full-text database |
-| **Springer** | ✅ | ✅* | ❌ | ❌ | ✅ Required | Dual API: Metadata & OpenAccess |
+| **Springer Nature** | ✅ | ✅* | ❌ | ❌ | ✅ Required | Dual API: Meta v2 & OpenAccess |
 | **Wiley** | ✅ | ✅ | ❌ | ❌ | ✅ Required | Text and Data Mining API |
 | **Scopus** | ✅ | ❌ | ❌ | ✅ | ✅ Required | Largest citation database |
 
@@ -87,8 +87,10 @@ cp .env.example .env
    # Elsevier API key (required for ScienceDirect and Scopus)
    ELSEVIER_API_KEY=your_elsevier_api_key
    
-   # Springer Nature API key (required for Springer)
-   SPRINGER_API_KEY=your_springer_api_key
+   # Springer Nature API keys (required for Springer)
+   SPRINGER_API_KEY=your_springer_api_key  # For Metadata API v2
+   # Optional: Separate key for OpenAccess API (if different from main key)
+   SPRINGER_OPENACCESS_API_KEY=your_openaccess_api_key
    
    # Wiley TDM token (required for Wiley)
    WILEY_TDM_TOKEN=your_wiley_tdm_token
@@ -358,7 +360,7 @@ src/
 |   ├── IACRSearcher.ts       # IACR ePrint searcher
 |   ├── SciHubSearcher.ts     # Sci-Hub searcher with mirror management
 |   ├── ScienceDirectSearcher.ts # ScienceDirect (Elsevier) searcher
-|   ├── SpringerSearcher.ts   # Springer Nature searcher (Metadata & OpenAccess APIs)
+│   ├── SpringerSearcher.ts   # Springer Nature searcher (Meta v2 & OpenAccess APIs)
 |   ├── WileySearcher.ts      # Wiley TDM API searcher
 |   └── ScopusSearcher.ts     # Scopus citation database searcher
 ├── utils/
@@ -387,6 +389,36 @@ npm run format
 ```
 
 ## 🌟 Platform-Specific Features
+
+### Springer Nature Dual API System
+
+Springer Nature provides two APIs:
+
+1. **Metadata API v2** (Main API)
+   - Endpoint: `https://api.springernature.com/meta/v2/json`
+   - Searches all Springer content (subscription + open access)
+   - Requires API key from https://dev.springernature.com/
+
+2. **OpenAccess API** (Optional)
+   - Endpoint: `https://api.springernature.com/openaccess/json`
+   - Only searches open access content
+   - May require separate API key or special permissions
+   - Better for finding downloadable PDFs
+
+```typescript
+// Search all Springer content
+search_springer({
+  query: "machine learning",
+  maxResults: 10
+})
+
+// Search only open access papers
+search_springer({
+  query: "COVID-19",
+  openAccess: true,  // Uses OpenAccess API if available
+  maxResults: 5
+})
+```
 
 ### Web of Science Advanced Search
 
