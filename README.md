@@ -2,16 +2,16 @@
 
 ## English|[中文](README-sc.md)
 
-A Node.js Model Context Protocol (MCP) server for searching and downloading academic papers from multiple sources, including arXiv, Web of Science, PubMed, Google Scholar, and **8 academic platforms** in total.
+A Node.js Model Context Protocol (MCP) server for searching and downloading academic papers from multiple sources, including arXiv, Web of Science, PubMed, Google Scholar, Sci-Hub, and **9 academic platforms** in total.
 
 ![Node.js](https://img.shields.io/badge/node.js->=18.0.0-green.svg)
 ![TypeScript](https://img.shields.io/badge/typescript-^5.5.3-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Platforms](https://img.shields.io/badge/platforms-8-brightgreen.svg)
+![Platforms](https://img.shields.io/badge/platforms-9-brightgreen.svg)
 
 ## ✨ Key Features
 
-- **🌍 8 Academic Platforms**: arXiv, Web of Science, PubMed, Google Scholar, bioRxiv, medRxiv, Semantic Scholar, IACR ePrint
+- **🌍 9 Academic Platforms**: arXiv, Web of Science, PubMed, Google Scholar, bioRxiv, medRxiv, Semantic Scholar, IACR ePrint, Sci-Hub
 - **🔗 MCP Protocol Integration**: Seamless integration with Claude Desktop and other AI assistants
 - **📊 Unified Data Model**: Standardized paper format across all platforms
 - **⚡ High-Performance Search**: Concurrent search with intelligent rate limiting
@@ -31,6 +31,7 @@ A Node.js Model Context Protocol (MCP) server for searching and downloading acad
 | **medRxiv** | ✅ | ✅ | ✅ | ❌ | ❌ | Medical preprints |
 | **Semantic Scholar** | ✅ | ✅ | ❌ | ✅ | 🟡 Optional | AI semantic search |
 | **IACR ePrint** | ✅ | ✅ | ✅ | ❌ | ❌ | Cryptography papers |
+| **Sci-Hub** | ✅ | ✅ | ❌ | ❌ | ❌ | Universal paper access via DOI |
 
 ✅ Supported | ❌ Not supported | 🟡 Optional
 
@@ -167,7 +168,7 @@ search_papers({
 **Platform Selection Behavior:**
 - `platform: "all"` - Randomly selects one platform for efficient, focused results
 - Specific platform - Searches only that platform
-- Available platforms: `arxiv`, `webofscience`/`wos`, `pubmed`, `biorxiv`, `medrxiv`, `semantic`, `iacr`, `googlescholar`/`scholar`
+- Available platforms: `arxiv`, `webofscience`/`wos`, `pubmed`, `biorxiv`, `medrxiv`, `semantic`, `iacr`, `googlescholar`/`scholar`, `scihub`
 ### `search_arxiv`
 Search arXiv preprints specifically
 
@@ -253,13 +254,33 @@ search_iacr({
 })
 ```
 
+### `search_scihub`
+Search and download papers from Sci-Hub using DOI or paper URL
+
+```typescript
+search_scihub({
+  doiOrUrl: "10.1038/nature12373",
+  downloadPdf: true,
+  savePath: "./downloads"
+})
+```
+
+### `check_scihub_mirrors`
+Check health status of Sci-Hub mirror sites
+
+```typescript
+check_scihub_mirrors({
+  forceCheck: true  // Force fresh health check
+})
+```
+
 ### `download_paper`
 Download paper PDF files
 
 ```typescript
 download_paper({
-  paperId: "2106.12345",
-  platform: "arxiv",
+  paperId: "2106.12345",  // or DOI for Sci-Hub
+  platform: "arxiv",      // or "scihub" for Sci-Hub downloads
   savePath: "./downloads"
 })
 ```
@@ -320,8 +341,9 @@ src/
 │   ├── PubMedSearcher.ts     # PubMed searcher
 │   ├── GoogleScholarSearcher.ts # Google Scholar searcher
 │   ├── BioRxivSearcher.ts    # bioRxiv/medRxiv searcher
-│   ├── SemanticScholarSearcher.ts # Semantic Scholar searcher
-│   └── IACRSearcher.ts       # IACR ePrint searcher
+|   ├── SemanticScholarSearcher.ts # Semantic Scholar searcher
+|   ├── IACRSearcher.ts       # IACR ePrint searcher
+|   └── SciHubSearcher.ts     # Sci-Hub searcher with mirror management
 ├── utils/
 │   └── RateLimiter.ts        # Token bucket rate limiter
 └── server.ts                 # MCP server main file
@@ -392,6 +414,15 @@ search_webofscience({
 - **Citation Networks**: Paper relationships and influence metrics
 - **Open Access PDFs**: Direct links to freely available papers
 - **Research Fields**: Filter by specific academic disciplines
+
+### Sci-Hub Features
+
+- **Universal Access**: Access papers using DOI or direct URLs
+- **Mirror Network**: Automatic detection and use of fastest available mirror (11+ mirrors)
+- **Health Monitoring**: Continuous monitoring of mirror site availability
+- **Automatic Failover**: Seamless switching between mirrors when one fails
+- **Smart Retry**: Automatic retry with different mirrors on failure
+- **Response Time Optimization**: Mirrors sorted by response time for best performance
 
 ## 📝 License
 

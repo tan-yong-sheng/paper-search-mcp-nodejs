@@ -22,6 +22,7 @@ import { BioRxivSearcher, MedRxivSearcher } from './platforms/BioRxivSearcher.js
 import { SemanticScholarSearcher } from './platforms/SemanticScholarSearcher.js';
 import { IACRSearcher } from './platforms/IACRSearcher.js';
 import { GoogleScholarSearcher } from './platforms/GoogleScholarSearcher.js';
+import { SciHubSearcher } from './platforms/SciHubSearcher.js';
 import { PaperFactory, Paper } from './models/Paper.js';
 import { PaperSource } from './platforms/PaperSource.js';
 
@@ -62,6 +63,7 @@ let searchers: {
   iacr: IACRSearcher;
   googlescholar: GoogleScholarSearcher;
   scholar: GoogleScholarSearcher;
+  scihub: SciHubSearcher;
 } | null = null;
 
 const initializeSearchers = () => {
@@ -80,6 +82,7 @@ const initializeSearchers = () => {
   const semanticSearcher = new SemanticScholarSearcher(process.env.SEMANTIC_SCHOLAR_API_KEY);
   const iacrSearcher = new IACRSearcher();
   const googleScholarSearcher = new GoogleScholarSearcher();
+  const sciHubSearcher = new SciHubSearcher();
 
   searchers = {
     arxiv: arxivSearcher,
@@ -91,7 +94,8 @@ const initializeSearchers = () => {
     semantic: semanticSearcher,
     iacr: iacrSearcher,
     googlescholar: googleScholarSearcher,
-    scholar: googleScholarSearcher // 别名
+    scholar: googleScholarSearcher, // 别名
+    scihub: sciHubSearcher
   };
   
   debugLog('✅ Searchers initialized successfully');
@@ -101,7 +105,7 @@ const initializeSearchers = () => {
 // 工具参数类型定义
 interface SearchPapersParams {
   query: string;
-  platform?: 'arxiv' | 'webofscience' | 'pubmed' | 'wos' | 'biorxiv' | 'medrxiv' | 'semantic' | 'iacr' | 'googlescholar' | 'scholar' | 'all';
+  platform?: 'arxiv' | 'webofscience' | 'pubmed' | 'wos' | 'biorxiv' | 'medrxiv' | 'semantic' | 'iacr' | 'googlescholar' | 'scholar' | 'scihub' | 'all';
   maxResults?: number;
   year?: string;
   author?: string;
@@ -163,9 +167,19 @@ interface SearchIACRParams {
   fetchDetails?: boolean;
 }
 
+interface SearchSciHubParams {
+  doiOrUrl: string;
+  downloadPdf?: boolean;
+  savePath?: string;
+}
+
+interface CheckSciHubMirrorsParams {
+  forceCheck?: boolean;
+}
+
 interface DownloadPaperParams {
   paperId: string;
-  platform: 'arxiv' | 'biorxiv' | 'medrxiv' | 'semantic' | 'iacr';
+  platform: 'arxiv' | 'biorxiv' | 'medrxiv' | 'semantic' | 'iacr' | 'scihub';
   savePath?: string;
 }
 
@@ -197,8 +211,8 @@ const TOOLS: Tool[] = [
         query: { type: 'string', description: 'Search query string' },
         platform: { 
           type: 'string', 
-          enum: ['arxiv', 'webofscience', 'pubmed', 'wos', 'biorxiv', 'medrxiv', 'semantic', 'iacr', 'googlescholar', 'scholar', 'all'],
-          description: 'Platform to search (arxiv, webofscience/wos, pubmed, biorxiv, medrxiv, semantic, iacr, googlescholar/scholar, or all)'
+          enum: ['arxiv', 'webofscience', 'pubmed', 'wos', 'biorxiv', 'medrxiv', 'semantic', 'iacr', 'googlescholar', 'scholar', 'scihub', 'all'],
+          description: 'Platform to search (arxiv, webofscience/wos, pubmed, biorxiv, medrxiv, semantic, iacr, googlescholar/scholar, scihub, or all)'
         },
         maxResults: { 
           type: 'number', 
@@ -393,8 +407,8 @@ const TOOLS: Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        paperId: { type: 'string', description: 'Paper ID (e.g., arXiv ID)' },
-        platform: { type: 'string', enum: ['arxiv', 'biorxiv', 'medrxiv', 'semantic', 'iacr'], description: 'Platform where the paper is from' },
+        paperId: { type: 'string', description: 'Paper ID (e.g., arXiv ID, DOI for Sci-Hub)' },
+        platform: { type: 'string', enum: ['arxiv', 'biorxiv', 'medrxiv', 'semantic', 'iacr', 'scihub'], description: 'Platform where the paper is from' },
         savePath: { 
           type: 'string',
           description: 'Directory to save the PDF file'
@@ -446,6 +460,43 @@ const TOOLS: Tool[] = [
         }
       },
       required: ['doi']
+    }
+  },
+  {
+    name: 'search_scihub',
+    description: 'Search and download papers from Sci-Hub using DOI or paper URL. Automatically detects and uses the fastest available mirror.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        doiOrUrl: { 
+          type: 'string', 
+          description: 'DOI (e.g., "10.1038/nature12373") or full paper URL' 
+        },
+        downloadPdf: { 
+          type: 'boolean', 
+          description: 'Whether to download the PDF file',
+          default: false
+        },
+        savePath: { 
+          type: 'string',
+          description: 'Directory to save the PDF file (if downloadPdf is true)'
+        }
+      },
+      required: ['doiOrUrl']
+    }
+  },
+  {
+    name: 'check_scihub_mirrors',
+    description: 'Check the health status of all Sci-Hub mirror sites',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        forceCheck: {
+          type: 'boolean',
+          description: 'Force a fresh health check even if recent data exists',
+          default: false
+        }
+      }
     }
   },
   {
@@ -873,11 +924,69 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
+      case 'search_scihub': {
+        const params = args as unknown as { doiOrUrl: string; downloadPdf?: boolean; savePath?: string };
+        const { doiOrUrl, downloadPdf = false, savePath = './downloads' } = params;
+        
+        debugLog(`🔍 Sci-Hub Search: doiOrUrl="${doiOrUrl}", downloadPdf=${downloadPdf}`);
+        
+        // Search for the paper
+        const results = await currentSearchers.scihub.search(doiOrUrl);
+        
+        if (results.length === 0) {
+          return {
+            content: [{
+              type: 'text',
+              text: `No paper found on Sci-Hub for: ${doiOrUrl}`
+            }]
+          };
+        }
+        
+        const paper = results[0];
+        let responseText = `Found paper on Sci-Hub:\n\n${JSON.stringify(PaperFactory.toDict(paper), null, 2)}`;
+        
+        // Download PDF if requested
+        if (downloadPdf && paper.pdfUrl) {
+          try {
+            const filePath = await currentSearchers.scihub.downloadPdf(doiOrUrl, { savePath });
+            responseText += `\n\nPDF downloaded successfully to: ${filePath}`;
+          } catch (downloadError: any) {
+            responseText += `\n\nFailed to download PDF: ${downloadError.message}`;
+          }
+        }
+        
+        return {
+          content: [{
+            type: 'text',
+            text: responseText
+          }]
+        };
+      }
+
+      case 'check_scihub_mirrors': {
+        const params = args as unknown as { forceCheck?: boolean };
+        const { forceCheck = false } = params;
+        
+        if (forceCheck) {
+          debugLog('🔄 Forcing Sci-Hub mirror health check...');
+          await currentSearchers.scihub.forceHealthCheck();
+        }
+        
+        const mirrorStatus = currentSearchers.scihub.getMirrorStatus();
+        
+        return {
+          content: [{
+            type: 'text',
+            text: `Sci-Hub Mirror Status:\n\n${JSON.stringify(mirrorStatus, null, 2)}`
+          }]
+        };
+      }
+
       case 'get_platform_status': {
         const statusInfo = [];
 
         for (const [platformName, searcher] of Object.entries(currentSearchers)) {
-          if (platformName === 'wos') continue; // 跳过别名
+          if (platformName === 'wos' || platformName === 'scholar') continue; // 跳过别名
 
           const capabilities = (searcher as PaperSource).getCapabilities();
           const hasApiKey = (searcher as PaperSource).hasApiKey();
@@ -892,19 +1001,29 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               apiKeyStatus = 'missing';
             }
           }
+          
+          // Add special status for Sci-Hub
+          let additionalInfo = {};
+          if (platformName === 'scihub') {
+            additionalInfo = {
+              mirrorCount: currentSearchers.scihub.getMirrorStatus().length,
+              workingMirrors: currentSearchers.scihub.getMirrorStatus().filter(m => m.status === 'Working').length
+            };
+          }
 
           statusInfo.push({
             platform: platformName,
             baseUrl: (searcher as PaperSource).getBaseUrl(),
             capabilities: capabilities,
-            apiKeyStatus: apiKeyStatus
+            apiKeyStatus: apiKeyStatus,
+            ...additionalInfo
           });
         }
 
         return {
           content: [{
             type: 'text',
-            text: `Platform Status:\\n\\n${JSON.stringify(statusInfo, null, 2)}`
+            text: `Platform Status:\n\n${JSON.stringify(statusInfo, null, 2)}`
           }]
         };
       }
