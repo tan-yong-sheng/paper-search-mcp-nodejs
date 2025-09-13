@@ -51,6 +51,9 @@
     "tsx": "^4.16.2",
     "typescript": "^5.5.3"
   },
+  "overrides": {
+    "entities": "^6.0.0"
+  },
   "engines": {
     "node": ">=18.0.0"
   },
