@@ -46,7 +46,7 @@ const debugLog = (...messages: any[]) => {
 // 创建MCP服务器实例
 const server = new Server({
   name: 'paper-search-mcp-nodejs',
-  version: '0.1.4'
+  version: '0.2.2'
 }, {
   capabilities: {
     tools: {
@@ -693,7 +693,7 @@ server.setRequestHandler(InitializeRequestSchema, async (request) => {
     },
     serverInfo: {
       name: 'paper-search-mcp-nodejs',
-      version: '0.1.4'
+      version: '0.2.2'
     }
   };
 });
