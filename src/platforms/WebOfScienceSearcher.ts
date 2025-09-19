@@ -73,7 +73,10 @@ export class WebOfScienceSearcher extends PaperSource {
     super('webofscience', 'https://api.clarivate.com/apis', apiKey);
     this.apiVersion = apiVersion;
     this.apiUrl = `${this.baseUrl}/wos-starter/${this.apiVersion}`;
-    console.error(`🔧 WoS API URL: ${this.apiUrl}`);
+    // 只在开发模式下输出调试信息
+    if (process.env.NODE_ENV === 'development') {
+      console.error(`🔧 WoS API URL: ${this.apiUrl}`);
+    }
   }
 
   getCapabilities(): PlatformCapabilities {
@@ -163,50 +166,105 @@ export class WebOfScienceSearcher extends PaperSource {
    * 构建搜索查询参数
    */
   private buildSearchQuery(query: string, options: WoSSearchOptions): Record<string, any> {
-    // Web of Science requires tagged queries - use TS= for topic search
-    let formattedQuery = `TS="${query}"`;
-    
+    // 构建WOS查询字符串 - 支持多主题和复杂查询
+    let formattedQuery = this.buildWosQuery(query, options);
+
     const params: Record<string, any> = {
       q: formattedQuery,
       db: options.databases?.join(',') || 'WOS',
-      limit: options.maxResults || 10,
+      limit: Math.min(options.maxResults || 10, 100), // WOS API限制最大100条
       page: 1
     };
 
-    // 添加年份过滤  
-    if (options.year) {
-      params.q += ` AND PY=${options.year}`;
-    }
-
-    // 添加作者过滤
-    if (options.author) {
-      params.q += ` AND AU="${options.author}"`;
-    }
-
-    // 添加期刊过滤
-    if (options.journal) {
-      params.q += ` AND SO="${options.journal}"`;
-    }
-
-    // 添加排序
+    // 添加排序参数 - 使用正确的API参数名
     if (options.sortBy) {
       const sortField = this.mapSortField(options.sortBy);
-      params.sortField = sortField;
+      params.sortBy = sortField; // 修正参数名从sortField到sortBy
+
+      // 添加排序顺序
+      if (options.sortOrder) {
+        params.sortOrder = options.sortOrder.toUpperCase(); // API要求大写: ASC 或 DESC
+      }
     }
 
     return params;
   }
 
   /**
-   * 映射排序字段
+   * 构建WOS格式的查询字符串
+   */
+  private buildWosQuery(query: string, options: WoSSearchOptions): string {
+    const queryParts: string[] = [];
+
+    // 处理主题搜索 - 支持多个关键词
+    if (query && query.trim()) {
+      // 转义特殊字符并处理多主题搜索
+      const escapedQuery = this.escapeWosQuery(query);
+
+      // 检查是否已经包含WOS字段标签
+      if (escapedQuery.includes('=')) {
+        // 用户提供了带字段标签的查询
+        queryParts.push(escapedQuery);
+      } else {
+        // 简单查询，使用TS(Topic)字段
+        queryParts.push(`TS=(${escapedQuery})`);
+      }
+    }
+
+    // 添加年份过滤
+    if (options.year) {
+      if (options.year.includes('-')) {
+        // 年份范围 "2020-2023"
+        const [startYear, endYear] = options.year.split('-');
+        queryParts.push(`PY=(${startYear.trim()}-${endYear.trim()})`);
+      } else {
+        // 单个年份
+        queryParts.push(`PY=${options.year}`);
+      }
+    }
+
+    // 添加作者过滤
+    if (options.author) {
+      const escapedAuthor = this.escapeWosQuery(options.author);
+      queryParts.push(`AU=(${escapedAuthor})`);
+    }
+
+    // 添加期刊过滤
+    if (options.journal) {
+      const escapedJournal = this.escapeWosQuery(options.journal);
+      queryParts.push(`SO=(${escapedJournal})`);
+    }
+
+    // 用AND连接所有查询部分
+    return queryParts.join(' AND ');
+  }
+
+  /**
+   * 转义WOS查询中的特殊字符
+   */
+  private escapeWosQuery(query: string): string {
+    if (!query) return '';
+
+    // 移除多余的引号和转义特殊字符
+    return query
+      .replace(/"/g, '') // 移除引号
+      .replace(/[\(\)]/g, '') // 移除括号(API会自动添加)
+      .trim();
+  }
+
+  /**
+   * 映射排序字段到WOS API格式
    */
   private mapSortField(sortBy: string): string {
     const fieldMap: Record<string, string> = {
       'relevance': 'relevance',
-      'date': 'PY',
-      'citations': 'TC'
+      'date': 'PD', // Publication Date - 更准确的日期排序字段
+      'citations': 'TC', // Times Cited
+      'title': 'TI', // Title
+      'author': 'AU', // Author
+      'journal': 'SO' // Source (Journal)
     };
-    return fieldMap[sortBy] || 'relevance';
+    return fieldMap[sortBy.toLowerCase()] || 'relevance';
   }
 
   /**
@@ -316,13 +374,18 @@ export class WebOfScienceSearcher extends PaperSource {
       timeout: 30000
     };
 
-    console.error(`🔍 WoS API Request: ${config.method} ${url}`);
-    console.error(`📋 WoS Request params:`, config.params);
+    // 调试日志 - 只在开发模式或详细日志模式下输出
+    if (process.env.NODE_ENV === 'development' || process.env.WOS_VERBOSE_LOGGING === 'true') {
+      console.error(`🔍 WoS API Request: ${config.method} ${url}`);
+      console.error(`📋 WoS Request params:`, config.params);
+    }
     
     try {
       const response = await axios(url, requestConfig);
-      console.error(`✅ WoS API Response: ${response.status} ${response.statusText}`);
-      console.error(`📄 WoS Response data preview:`, JSON.stringify(response.data, null, 2).substring(0, 500));
+      if (process.env.NODE_ENV === 'development' || process.env.WOS_VERBOSE_LOGGING === 'true') {
+        console.error(`✅ WoS API Response: ${response.status} ${response.statusText}`);
+        console.error(`📄 WoS Response data preview:`, JSON.stringify(response.data, null, 2).substring(0, 500));
+      }
       return response;
     } catch (error: any) {
       console.error(`❌ WoS API Error:`, {
